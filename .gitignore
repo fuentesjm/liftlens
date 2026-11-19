@@ -3,9 +3,18 @@
 
 # Large/generated files
 models/*.task
-*.mp4
-!samples/*.mp4
 reports/
+data/
+
+# Videos: never commit clips of other people. Only the team's own sample
+# clips in samples/ (as .mp4) are allowed.
+*.mp4
+*.mov
+*.MOV
+*.m4v
+*.avi
+*.webm
+!samples/*.mp4
 
 # Python
 __pycache__/

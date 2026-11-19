@@ -8,13 +8,14 @@ A user uploads a side-view video of a set of squats; LiftLens counts the reps, c
 
 | Component | Status |
 |---|---|
-| Squat analysis pipeline (pose → angles → reps → form rules → JSON report) | **Done** (unit-tested on synthetic data) |
+| Squat analysis pipeline (pose → angles → reps → form rules → JSON report) | **Done** (unit-tested on synthetic data; checked on 2 sample clips) |
+| FastAPI backend: upload a video, get the report, list saved sessions | **Done** (API-tested) |
 | Accuracy evaluation on real recorded clips | Planned |
 | Annotated replay video | Planned |
 | Push-up analysis | Planned |
 | Adaptation engine (next-session load) | Planned |
 | LLM plan generator and feedback writer | Planned |
-| FastAPI backend and Next.js frontend | Planned |
+| Next.js frontend | Planned |
 
 ## How it works
 
@@ -41,7 +42,7 @@ pip install -r requirements.txt
 python scripts/download_model.py   # downloads the pose model into models/
 ```
 
-No API keys are needed yet. When the LLM features are added, copy `.env.example` to `.env` and add the key there.
+Optional settings (model path, data folder, upload size limit, allowed frontend origins) are environment variables listed in `.env.example`. To change any, copy it to `.env` and edit; `.env` is gitignored. No API keys are needed yet.
 
 ## Run
 
@@ -52,13 +53,36 @@ python -m backend.analysis.analyze samples/squat_side.mp4
 python -m backend.analysis.analyze samples/squat_side.mp4 --out report.json
 ```
 
+### Run the API server
+
+```bash
+uvicorn backend.api.main:app --reload
+```
+
+Open http://127.0.0.1:8000/docs to try every endpoint in the browser (click **POST /analyze → Try it out**, choose a video, **Execute**). Or from a terminal:
+
+```bash
+curl -F "file=@samples/squat_side.mp4" -F "exercise=squat" http://127.0.0.1:8000/analyze
+```
+
+| Endpoint | What it does |
+|---|---|
+| `GET /health` | server is up; `model_ready` says whether the pose model is downloaded |
+| `POST /analyze` | form fields `file` (video: mp4, mov, m4v, avi, webm) and `exercise` (`squat`). Returns `{session_id, created_at, report}` and saves it |
+| `GET /sessions` | saved sessions, newest first (id, date, rep count, form score) |
+| `GET /sessions/{session_id}` | one saved session with its full report |
+
+Uploaded videos are written to a temporary folder only while they're analyzed, then deleted. Reports are saved as JSON in `data/sessions/` (gitignored).
+
+Errors: `400` wrong file type, empty or unreadable video, or unsupported exercise; `413` file over the size limit; `422` no person detected; `503` pose model not downloaded.
+
 ## Reproduce a sample result
 
 ```bash
 python -m pytest -q backend/tests
 ```
 
-The tests generate synthetic side-view squats with known knee angles (`backend/tests/synthetic.py`) and check rep counting, depth and lean detection, jitter rejection, timing, visibility warnings, soft-knee standing, and the camera-angle warning, with no video or model needed.
+`test_analysis.py` and `test_api.py` generate synthetic side-view squats with known knee angles (`backend/tests/synthetic.py`) and check rep counting, depth and lean detection, jitter rejection, timing, visibility warnings, soft-knee standing, and the camera-angle warning, with no video or model needed. The API tests swap the pose model for the same generator and check uploads, saved sessions, and every error response.
 
 ## Main files
 
@@ -72,7 +96,10 @@ The tests generate synthetic side-view squats with known knee angles (`backend/t
 | `backend/analysis/form_rules.py` | per-rep form checks and cue text |
 | `backend/analysis/report.py` | JSON report |
 | `backend/analysis/config.py` | all thresholds in one place |
-| `backend/tests/` | unit tests and the synthetic squat generator |
+| `backend/api/main.py` | FastAPI app and endpoints |
+| `backend/api/storage.py` | saves and loads session reports (JSON files) |
+| `backend/api/settings.py` | server settings from environment variables |
+| `backend/tests/` | unit and API tests, and the synthetic squat generator |
 | `scripts/download_model.py` | downloads the pose model |
 
 ## Known limitations

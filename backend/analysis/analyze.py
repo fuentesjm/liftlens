@@ -20,9 +20,15 @@ from .report import build_report
 from .reps import adaptive_thresholds, segment_reps
 
 
+class NoPersonDetected(ValueError):
+    """No frame had a clearly visible person, so there is nothing to analyze."""
+
+
 def analyze_sequence(seq: PoseSequence, video: str, cfg: SquatConfig = DEFAULT_SQUAT_CONFIG) -> dict:
     """Everything after pose extraction (pure Python; unit-tested without a model)."""
     series = compute_series(seq, cfg)
+    if series.valid_ratio == 0:
+        raise NoPersonDetected("No person was clearly visible in any frame.")
     baseline, up, down = adaptive_thresholds(series.knee_angle, cfg)
     reps = segment_reps(series.knee_angle, seq.fps, cfg, up=up, down=down)
     results = evaluate_reps(reps, series, cfg)
@@ -66,7 +72,10 @@ def main() -> None:
     parser.add_argument("--debug", action="store_true", help="print knee angle and lean over time")
     args = parser.parse_args()
 
-    report = analyze_video(args.video, args.model, debug=args.debug)
+    try:
+        report = analyze_video(args.video, args.model, debug=args.debug)
+    except (FileNotFoundError, NoPersonDetected) as e:
+        raise SystemExit(f"Error: {e}")
     text = json.dumps(report, indent=2)
     print(text)
     if args.out:
