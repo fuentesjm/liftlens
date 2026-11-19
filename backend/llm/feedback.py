@@ -1,0 +1,98 @@
+"""Feedback writer: turn a form report + next-workout decision into coaching text.
+
+Privacy: only numbers and error codes are sent to the LLM (no video, no file
+name, no user identity). The LLM explains decisions; it never makes them:
+the rep count, pass/fail, and next-session load all come from our own code.
+"""
+
+from __future__ import annotations
+
+import json
+
+from pydantic import BaseModel, Field
+
+from .client import LLMClient, LLMError
+
+FEEDBACK_SYSTEM_PROMPT = """\
+You are a supportive strength coach writing feedback for a beginner who just
+recorded one set of squats. You receive measurements from a pose-analysis
+system as JSON.
+
+Rules:
+- Use ONLY the facts in the JSON. Never invent reps, angles, or errors.
+- Do not change the next-session decision; explain it in plain words.
+- Plain language for a beginner: say "thighs parallel to the floor", not
+  "knee flexion angle". Mention at most one number per sentence.
+- At most 3 tips, each one short actionable sentence. If every rep passed,
+  give encouragement and one thing to keep doing.
+- If there are warnings (camera angle, visibility), mention the most
+  important one first, because the measurements may be less reliable.
+- No medical advice or injury diagnosis. If something hurts, say to stop
+  and consult a professional.
+"""
+
+
+class Feedback(BaseModel):
+    summary: str = Field(description="1-2 sentences on how the set went", max_length=400)
+    tips: list[str] = Field(description="up to 3 short actionable coaching tips", max_length=3)
+    next_session: str = Field(description="1-2 sentences explaining the next-session decision",
+                              max_length=400)
+
+
+def feedback_input(report: dict, next_workout: dict) -> dict:
+    """The exact data sent to the LLM: numbers and codes only."""
+    return {
+        "rep_count": report["rep_count"],
+        "reps_passed": report["reps_passed"],
+        "form_score": report["form_score"],
+        "reps": [
+            {"rep": r["number"], "bottom_knee_angle_deg": r["bottom_knee_angle"],
+             "torso_lean_deg": r["torso_lean_at_bottom"], "errors": r["errors"]}
+            for r in report["reps"]
+        ],
+        "limits": {
+            "depth_pass_if_knee_angle_at_most_deg": report["thresholds"]["max_bottom_knee_angle"],
+            "lean_pass_if_torso_lean_at_most_deg": report["thresholds"]["max_torso_lean"],
+        },
+        "warnings": report["warnings"],
+        "next_session": {
+            "decision": next_workout["decision"],
+            "load": next_workout["next"]["load"],
+            "unit": next_workout["next"]["unit"],
+            "target_reps": next_workout["next"]["target_reps"],
+            "reason": next_workout["reason"],
+        },
+    }
+
+
+def template_feedback(report: dict, next_workout: dict) -> Feedback:
+    """Rule-based fallback: same facts, fixed wording."""
+    total, passed = report["rep_count"], report["reps_passed"]
+    if total == 0:
+        summary = "No reps were detected in this video."
+    elif passed == total:
+        summary = f"All {total} reps passed the depth and torso checks. Nice work."
+    else:
+        summary = f"{passed} of {total} reps passed the depth and torso checks."
+    tips = (report["warnings"] + report["cues"])[:3]
+    if not tips and total:
+        tips = ["Keep the same controlled pace and depth on your next set."]
+    return Feedback(summary=summary, tips=tips, next_session=next_workout["reason"])
+
+
+def write_feedback(report: dict, next_workout: dict, client: LLMClient | None) -> dict:
+    """LLM feedback if possible, otherwise template text. Always returns a result."""
+    fallback_reason = "no LLM configured"
+    if client is not None and report["rep_count"] > 0:
+        prompt = ("Write feedback for this set.\n\n"
+                  + json.dumps(feedback_input(report, next_workout), indent=2))
+        try:
+            fb = client.generate_json(FEEDBACK_SYSTEM_PROMPT, prompt, Feedback)
+            return {**fb.model_dump(), "source": "llm", "model": client.name}
+        except LLMError as e:
+            fallback_reason = str(e)
+    elif client is not None:
+        fallback_reason = "no reps to describe"
+    fb = template_feedback(report, next_workout)
+    return {**fb.model_dump(), "source": "template", "model": None,
+            "fallback_reason": fallback_reason}

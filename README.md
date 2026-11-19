@@ -14,7 +14,7 @@ A user uploads a side-view video of a set of squats; LiftLens counts the reps, c
 | Annotated replay video | Planned |
 | Push-up analysis | Planned |
 | Adaptation engine (next-session load and reps) | **Done** (rule-based; scenario-tested) |
-| LLM plan generator and feedback writer | Planned |
+| LLM feedback writer and plan generator (Gemini, safety-checked, template fallback) | **Done** (tested with a fake LLM; see `docs/llm.md`) |
 | Next.js frontend | Planned |
 
 ## How it works
@@ -57,7 +57,9 @@ pip install -r requirements.txt
 python scripts/download_model.py   # downloads the pose model into models/
 ```
 
-Optional settings (model path, data folder, upload size limit, allowed frontend origins) are environment variables listed in `.env.example`. To change any, copy it to `.env` and edit; `.env` is gitignored. No API keys are needed yet.
+Settings are environment variables listed in `.env.example`. Copy it to `.env` and edit; `.env` is gitignored and must never be committed.
+
+**LLM key (optional):** for AI-written feedback and plans, get a free Gemini key at Google AI Studio and set `GEMINI_API_KEY` in `.env`. Without a key, everything still runs and uses template text instead. Prompts, inputs and outputs, and limitations are documented in [`docs/llm.md`](docs/llm.md).
 
 ## Run
 
@@ -84,11 +86,13 @@ curl -F "file=@samples/squat_side.mp4" -F "exercise=squat" \
 
 | Endpoint | What it does |
 |---|---|
-| `GET /health` | server is up; `model_ready` says whether the pose model is downloaded |
-| `POST /analyze` | form fields `file` (video: mp4, mov, m4v, avi, webm), `exercise` (`squat`), and optional `load` (0 = bodyweight), `unit` (`lb`/`kg`), `target_reps`, `rpe` (1–10). Saves the session and returns `{session_id, created_at, workout, report, next_workout}` |
+| `GET /health` | server is up; `model_ready` = pose model downloaded; `llm` = active LLM (or `null` = template text) |
+| `POST /analyze` | form fields `file` (video: mp4, mov, m4v, avi, webm), `exercise` (`squat`), and optional `load` (0 = bodyweight), `unit` (`lb`/`kg`), `target_reps`, `rpe` (1–10). Saves the session and returns `{session_id, created_at, workout, report, next_workout, feedback}` |
 | `GET /sessions` | saved sessions, newest first (id, date, rep count, form score) |
 | `GET /sessions/{session_id}` | one saved session with its full report |
 | `GET /next-workout?exercise=squat` | the next-session decision from the saved history |
+| `POST /plan` | JSON profile `{goal, experience, days_per_week, equipment, session_minutes}` → safety-checked weekly plan (saved) |
+| `GET /plan` | the saved weekly plan |
 
 Uploaded videos are written to a temporary folder only while they're analyzed, then deleted. Reports are saved as JSON in `data/sessions/` (gitignored).
 
@@ -100,7 +104,7 @@ Errors: `400` wrong file type, empty or unreadable video, or unsupported exercis
 python -m pytest -q backend/tests
 ```
 
-`test_analysis.py` and `test_api.py` generate synthetic side-view squats with known knee angles (`backend/tests/synthetic.py`) and check rep counting, depth and lean detection, jitter rejection, timing, visibility warnings, soft-knee standing, and the camera-angle warning, with no video or model needed. The API tests swap the pose model for the same generator and check uploads, saved sessions, and every error response. `test_adaptation.py` runs the adaptation rules on fake session histories (progress, hold, reduce, deload, retest, kg vs lb, bodyweight, old sessions without workout fields).
+`test_analysis.py` and `test_api.py` generate synthetic side-view squats with known knee angles (`backend/tests/synthetic.py`) and check rep counting, depth and lean detection, jitter rejection, timing, visibility warnings, soft-knee standing, and the camera-angle warning, with no video or model needed. The API tests swap the pose model for the same generator and check uploads, saved sessions, and every error response. `test_llm.py` checks the LLM features with a fake client: feedback and plan parsing, the numbers-only prompt, retry on unsafe plans, every fallback, and that the template plan passes the safety checks for all profile combinations. No test calls the real API. `test_adaptation.py` runs the adaptation rules on fake session histories (progress, hold, reduce, deload, retest, kg vs lb, bodyweight, old sessions without workout fields).
 
 ## Main files
 
@@ -118,6 +122,10 @@ python -m pytest -q backend/tests
 | `backend/api/storage.py` | saves and loads session reports (JSON files) |
 | `backend/api/settings.py` | server settings from environment variables |
 | `backend/planning/adaptation.py` | adaptation engine: next-session load and reps |
+| `backend/llm/client.py` | Gemini wrapper (JSON mode, key from env, errors → fallback) |
+| `backend/llm/feedback.py` | feedback writer: prompt, schema, template fallback |
+| `backend/llm/plan.py` | plan generator: prompt, schema, safety checks, retry, template plan |
+| `docs/llm.md` | LLM prompts, API workflow, inputs and outputs, limitations, team contribution |
 | `backend/tests/` | unit and API tests, and the synthetic squat generator |
 | `scripts/download_model.py` | downloads the pose model |
 

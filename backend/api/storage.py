@@ -60,5 +60,15 @@ class SessionStore:
             for s in self.history()
         ]
 
+    # The current weekly plan (one per install for the MVP; no user accounts yet).
+    def save_plan(self, plan: dict) -> dict:
+        plan = {**plan, "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+        (self.dir.parent / "plan.json").write_text(json.dumps(plan, indent=2))
+        return plan
+
+    def get_plan(self) -> dict | None:
+        path = self.dir.parent / "plan.json"
+        return json.loads(path.read_text()) if path.exists() else None
+
     def _path(self, session_id: str) -> Path:
         return self.dir / f"{session_id}.json"

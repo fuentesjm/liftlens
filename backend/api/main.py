@@ -11,6 +11,8 @@ Endpoints
     GET  /sessions               list saved sessions (newest first)
     GET  /sessions/{session_id}  one saved session with its full report
     GET  /next-workout           next-session load and reps from the saved history
+    POST /plan                   profile -> weekly plan (LLM, safety-checked; template fallback)
+    GET  /plan                   the saved weekly plan
 """
 
 from __future__ import annotations
@@ -26,6 +28,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.analysis.analyze import NoPersonDetected, analyze_sequence
 from backend.analysis.pose import extract_pose
+from backend.llm.client import LLMClient, get_llm_client
+from backend.llm.feedback import write_feedback
+from backend.llm.plan import Profile, generate_plan
 from backend.planning.adaptation import next_workout
 
 from .settings import Settings
@@ -36,9 +41,14 @@ SUPPORTED_EXERCISES = {"squat"}  # push-ups are planned
 CHUNK = 1024 * 1024  # copy uploads 1 MB at a time
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+_FROM_ENV = object()
+
+
+def create_app(settings: Settings | None = None, llm: LLMClient | None | object = _FROM_ENV) -> FastAPI:
+    """`llm` defaults to the client configured in .env (None = template text only)."""
     settings = settings or Settings.from_env()
     store = SessionStore(settings.data_dir)
+    llm = get_llm_client() if llm is _FROM_ENV else llm
 
     app = FastAPI(title="LiftLens API", version="0.1.0")
     # Lets the Next.js frontend (another port) call this API from the browser.
@@ -51,7 +61,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/health")
     def health() -> dict:
-        return {"status": "ok", "model_ready": settings.model_path.exists()}
+        return {"status": "ok", "model_ready": settings.model_path.exists(),
+                "llm": llm.name if llm else None}
 
     # A plain `def` (not `async def`) so FastAPI runs it in a worker thread:
     # pose extraction takes seconds and would otherwise block the server.
@@ -92,7 +103,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                                      "with your whole body in frame.")
         workout = {"load": load, "unit": unit, "target_reps": target_reps, "rpe": rpe}
         session = store.save(report, workout)
-        return {**session, "next_workout": next_workout(store.history(exercise))}
+        decision = next_workout(store.history(exercise))
+        return {**session, "next_workout": decision,
+                "feedback": write_feedback(report, decision, llm)}
 
     @app.get("/sessions")
     def list_sessions() -> list[dict]:
@@ -111,6 +124,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not history:
             raise HTTPException(404, f"No saved {exercise} sessions yet. Upload a set first.")
         return next_workout(history)
+
+    @app.post("/plan")
+    def create_plan(profile: Profile) -> dict:
+        return store.save_plan(generate_plan(profile, llm))
+
+    @app.get("/plan")
+    def get_plan() -> dict:
+        plan = store.get_plan()
+        if plan is None:
+            raise HTTPException(404, "No plan yet. Create one with POST /plan.")
+        return plan
 
     return app
 

@@ -21,7 +21,7 @@ def settings(tmp_path):
 @pytest.fixture
 def client(settings, monkeypatch):
     monkeypatch.setattr(api, "extract_pose", lambda path, model: squat_sequence([90, 120, 90]))
-    return TestClient(api.create_app(settings))
+    return TestClient(api.create_app(settings, llm=None))
 
 
 def upload(client, name="squat.mp4", data=FAKE_VIDEO, exercise="squat", **workout):
@@ -30,7 +30,7 @@ def upload(client, name="squat.mp4", data=FAKE_VIDEO, exercise="squat", **workou
 
 
 def test_health_reports_model(client):
-    assert client.get("/health").json() == {"status": "ok", "model_ready": True}
+    assert client.get("/health").json() == {"status": "ok", "model_ready": True, "llm": None}
 
 
 def test_analyze_returns_saved_report(client):
@@ -51,7 +51,7 @@ def test_sessions_are_listed_and_fetchable(client):
     assert {s["session_id"] for s in listed} == {first["session_id"], second["session_id"]}
     assert listed[0]["rep_count"] == 3 and listed[0]["form_score"] == 0.67
     got = client.get(f"/sessions/{first['session_id']}").json()
-    assert got == {k: v for k, v in first.items() if k != "next_workout"}
+    assert got == {k: v for k, v in first.items() if k not in ("next_workout", "feedback")}
 
 
 def test_unknown_or_malformed_session_is_404(client):
@@ -79,15 +79,34 @@ def test_no_person_detected_is_422(settings, monkeypatch):
         seq.frames = [None] * len(seq.frames)
         return seq
     monkeypatch.setattr(api, "extract_pose", empty)
-    r = upload(TestClient(api.create_app(settings)))
+    r = upload(TestClient(api.create_app(settings, llm=None)))
     assert r.status_code == 422
 
 
 def test_missing_model_is_503(tmp_path):
     s = Settings(model_path=tmp_path / "missing.task", data_dir=tmp_path / "data")
-    c = TestClient(api.create_app(s))
+    c = TestClient(api.create_app(s, llm=None))
     assert c.get("/health").json()["model_ready"] is False
     assert upload(c).status_code == 503
+
+
+# --- Feedback and plan (template mode: tests never call a real LLM) -----------------
+def test_analyze_includes_template_feedback_without_llm(client):
+    fb = upload(client).json()["feedback"]
+    assert fb["source"] == "template" and fb["summary"].startswith("2 of 3 reps passed")
+
+
+def test_plan_create_and_get(client):
+    assert client.get("/plan").status_code == 404
+    r = client.post("/plan", json={"goal": "muscle", "days_per_week": 3, "equipment": "dumbbells"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["source"] == "template" and len(body["plan"]["days"]) == 3
+    assert client.get("/plan").json() == body
+
+
+def test_plan_rejects_invalid_profile(client):
+    assert client.post("/plan", json={"days_per_week": 9}).status_code == 422
 
 
 # --- Workout fields and next-workout decision ------------------------------------
