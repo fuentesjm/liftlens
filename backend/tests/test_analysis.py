@@ -100,3 +100,32 @@ def test_warns_when_body_mostly_hidden():
 def test_picks_visible_side():
     seq = squat_sequence([90])
     assert analyze_sequence(seq, "s.mp4", CFG)["side_analyzed"] == "right"
+
+
+# --- Adaptive thresholds and camera check --------------------------------------
+def test_thresholds_unchanged_for_straight_standing():
+    report = analyze_sequence(squat_sequence([90, 90]), "synthetic.mp4", CFG)
+    assert report["thresholds_used"]["up"] == pytest.approx(160.0)
+    assert report["thresholds_used"]["down"] == pytest.approx(140.0)
+
+
+def test_soft_knee_standing_still_counts_reps():
+    # Standing never gets above 158 deg, so a fixed 160 deg "standing" cutoff
+    # would never finish a rep. The adaptive cutoff should.
+    seq = squat_sequence([100, 100], stand_angle=158.0)
+    assert segment_reps(np.full(10, 158.0), 30.0, CFG) == []  # sanity: flat line is no rep
+    report = analyze_sequence(seq, "synthetic.mp4", CFG)
+    assert report["rep_count"] == 2
+    assert report["thresholds_used"]["up"] < 160.0
+
+
+def test_side_view_has_no_camera_warning():
+    report = analyze_sequence(squat_sequence([90]), "synthetic.mp4", CFG)
+    assert report["camera"]["shoulder_width_ratio"] < CFG.max_shoulder_width_ratio
+    assert not any("turned toward the camera" in w for w in report["warnings"])
+
+
+def test_facing_camera_warns():
+    report = analyze_sequence(squat_sequence([90], other_offset=180.0), "synthetic.mp4", CFG)
+    assert report["camera"]["shoulder_width_ratio"] > CFG.max_shoulder_width_ratio
+    assert any("turned toward the camera" in w for w in report["warnings"])

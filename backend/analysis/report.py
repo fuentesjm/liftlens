@@ -9,7 +9,8 @@ from .config import SquatConfig
 from .form_rules import CUES, RepResult
 
 
-def build_report(results: list[RepResult], series: SquatSeries, cfg: SquatConfig, video: str) -> dict:
+def build_report(results: list[RepResult], series: SquatSeries, cfg: SquatConfig, video: str,
+                 thresholds_used: dict | None = None) -> dict:
     total = len(results)
     passed = sum(r.passed for r in results)
 
@@ -18,6 +19,11 @@ def build_report(results: list[RepResult], series: SquatSeries, cfg: SquatConfig
         warnings.append(
             f"Body was clearly visible in only {series.valid_ratio:.0%} of frames. "
             "Record from the side with your whole body in frame."
+        )
+    if series.shoulder_ratio > cfg.max_shoulder_width_ratio:
+        warnings.append(
+            "You seem to be turned toward the camera. Film from the side "
+            "(camera at hip height, facing your side) for accurate angles."
         )
     if total == 0:
         warnings.append("No reps detected. Check camera angle and that full squats are in the clip.")
@@ -40,5 +46,7 @@ def build_report(results: list[RepResult], series: SquatSeries, cfg: SquatConfig
         "reps": [{**asdict(r), "passed": r.passed} for r in results],
         "cues": cues,
         "warnings": warnings,
+        "camera": {"shoulder_width_ratio": round(series.shoulder_ratio, 2)},
+        "thresholds_used": thresholds_used,
         "thresholds": asdict(cfg),
     }

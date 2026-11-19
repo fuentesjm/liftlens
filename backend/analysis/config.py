@@ -15,9 +15,14 @@ class SquatConfig:
     # (instead of one) prevents jitter near a single threshold from counting
     # extra reps. DOWN is deliberately high so shallow reps are still counted
     # (and then flagged by the depth rule) rather than missed.
+    # UP and DOWN are upper limits: the actual thresholds adapt to each
+    # person's standing knee angle (see reps.adaptive_thresholds), because
+    # soft knees or a slightly angled camera can keep "standing" below 160.
     up_threshold: float = 160.0
     down_threshold: float = 140.0
-    min_rep_seconds: float = 0.4  # ignore dips shorter than this (noise)
+    standing_margin: float = 10.0   # "standing" = within this of the person's standing angle
+    hysteresis_gap: float = 15.0    # minimum gap between UP and DOWN
+    min_rep_seconds: float = 0.4    # ignore dips shorter than this (noise)
 
     # --- Form rules ------------------------------------------------------------
     # Depth: the smallest knee angle in the rep must be at or below this value.
@@ -30,6 +35,10 @@ class SquatConfig:
     # --- Signal quality --------------------------------------------------------
     min_landmark_visibility: float = 0.5  # per-landmark visibility to trust it
     min_valid_frame_ratio: float = 0.6    # below this, warn the user
+    # Camera check: in a true side view the two shoulders overlap on screen.
+    # Shoulder separation / torso length above this means the person is turned
+    # toward the camera, which distorts the 2D angles. Calibrate on real clips.
+    max_shoulder_width_ratio: float = 0.35
     smoothing_window: int = 5             # centered moving average (frames, odd)
 
 

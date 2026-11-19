@@ -36,6 +36,7 @@ class SquatSeries:
     knee_angle: np.ndarray    # degrees, smoothed
     torso_lean: np.ndarray    # degrees, smoothed
     valid_ratio: float        # fraction of frames with trustworthy landmarks
+    shoulder_ratio: float     # median shoulder separation / torso length (0 = perfect side view)
 
 
 def _choose_side(seq: PoseSequence) -> str:
@@ -47,6 +48,26 @@ def _choose_side(seq: PoseSequence) -> str:
         for side in totals:
             totals[side] += sum(frame[f"{side}_{j}"].visibility for j in ("hip", "knee", "ankle"))
     return max(totals, key=totals.get)
+
+
+def shoulder_width_ratio(seq: PoseSequence, side: str) -> float:
+    """How far apart the two shoulders appear, relative to torso length.
+
+    Filmed exactly side-on, the shoulders overlap (ratio near 0). Facing the
+    camera, they are spread apart (ratio around 0.6-0.9). Uses the median over
+    frames so a few bad detections don't matter. MediaPipe still estimates the
+    hidden shoulder's position, so visibility is not required here.
+    """
+    ratios = []
+    for frame in seq.frames:
+        if frame is None:
+            continue
+        ls, rs, hip = frame["left_shoulder"], frame["right_shoulder"], frame[f"{side}_hip"]
+        near = frame[f"{side}_shoulder"]
+        torso = np.hypot(near.x - hip.x, near.y - hip.y)
+        if torso > 0:
+            ratios.append(abs(ls.x - rs.x) / torso)
+    return float(np.median(ratios)) if ratios else float("nan")
 
 
 def compute_series(seq: PoseSequence, cfg: SquatConfig) -> SquatSeries:
@@ -73,4 +94,5 @@ def compute_series(seq: PoseSequence, cfg: SquatConfig) -> SquatSeries:
         knee_angle=centered_moving_average(interpolate_missing(np.array(knee)), cfg.smoothing_window),
         torso_lean=centered_moving_average(interpolate_missing(np.array(lean)), cfg.smoothing_window),
         valid_ratio=valid / n if n else 0.0,
+        shoulder_ratio=shoulder_width_ratio(seq, side),
     )

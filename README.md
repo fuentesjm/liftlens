@@ -26,9 +26,9 @@ video ──► MediaPipe Pose Landmarker ──► joint angles ──► smoot
 1. **Pose estimation** (`pose.py`): the pretrained MediaPipe Pose Landmarker finds 33 body landmarks per frame. This is the only pretrained model.
 2. **Joint angles** (`angles.py`): picks the body side facing the camera, then computes the knee angle (hip–knee–ankle) and torso lean (shoulder–hip line vs. vertical) for every frame.
 3. **Smoothing** (`smoothing.py`): fills frames where the body wasn't visible (linear interpolation) and smooths with a centered moving average.
-4. **Rep segmentation** (`reps.py`): a two-threshold state machine on the knee angle. A rep starts when the angle drops below 140° and ends when it rises above 160°, so jitter between the thresholds can't count as extra reps.
+4. **Rep segmentation** (`reps.py`): a two-threshold state machine on the knee angle. A rep starts when the angle drops below the *down* threshold and ends when it rises above the *up* threshold, so jitter between them can't count as extra reps. The thresholds adapt to each clip: the person's standing angle is the 95th percentile of their knee angle, *up* is 10° below that (at most 160°) and *down* is 15° below *up* (at most 140°). This handles people who stand with soft knees or a camera that isn't perfectly side-on.
 5. **Form rules** (`form_rules.py`): a rep fails *depth* if its lowest knee angle is above 100°, and fails *forward lean* if the torso is more than 50° from vertical at the bottom. Thresholds live in `config.py`.
-6. **Report** (`report.py`): rep count, per-rep times and angles, errors, form score (fraction of reps passed), coaching cues, and warnings.
+6. **Report** (`report.py`): rep count, per-rep times and angles, errors, form score (fraction of reps passed), coaching cues, warnings, and the thresholds actually used. It also warns when the person seems turned toward the camera (the two shoulders appear far apart relative to torso length).
 
 ## Setup
 
@@ -58,7 +58,7 @@ python -m backend.analysis.analyze samples/squat_side.mp4 --out report.json
 python -m pytest -q backend/tests
 ```
 
-The tests generate synthetic side-view squats with known knee angles (`backend/tests/synthetic.py`) and check rep counting, depth and lean detection, jitter rejection, timing, and visibility warnings, with no video or model needed.
+The tests generate synthetic side-view squats with known knee angles (`backend/tests/synthetic.py`) and check rep counting, depth and lean detection, jitter rejection, timing, visibility warnings, soft-knee standing, and the camera-angle warning, with no video or model needed.
 
 ## Main files
 
