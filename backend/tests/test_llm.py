@@ -74,6 +74,22 @@ def test_feedback_prompt_has_numbers_only_no_video_name():
     assert sent["reps"][1]["errors"] == ["shallow_depth"]
 
 
+def test_feedback_schema_sent_to_llm_has_no_length_constraints():
+    schema = json.dumps(Feedback.model_json_schema())
+    assert "maxLength" not in schema and "maxItems" not in schema
+
+
+def test_feedback_extra_tips_are_dropped():
+    llm = FakeLLM(Feedback(summary="ok", tips=["a", "b", "c", "d", " "], next_session="ok"))
+    assert write_feedback(REPORT, DECISION, llm)["tips"] == ["a", "b", "c"]
+
+
+def test_feedback_too_long_falls_back():
+    llm = FakeLLM(Feedback(summary="x" * 500, tips=[], next_session="ok"))
+    fb = write_feedback(REPORT, DECISION, llm)
+    assert fb["source"] == "template" and "too long" in fb["fallback_reason"]
+
+
 def test_feedback_falls_back_on_llm_error():
     fb = write_feedback(REPORT, DECISION, FakeLLM(LLMError("ClientError (429)")))
     assert fb["source"] == "template" and fb["fallback_reason"] == "ClientError (429)"

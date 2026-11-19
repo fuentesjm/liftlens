@@ -1,16 +1,16 @@
 # LLM features: prompts, API workflow, and limitations
 
-LiftLens uses an external LLM (Google Gemini, free tier, default model `gemini-3.8-flash`) for two jobs: writing coaching feedback and generating weekly plans. Everything that decides something (rep counts, pass/fail, next-session load, safety limits) is done by our own code. The LLM only writes text or proposes a plan that our code then checks.
+LiftLens uses an external LLM (Google Gemini, free tier, default model `gemini-3.5-flash-lite`) for two jobs: writing coaching feedback and generating weekly plans. Everything that decides something (rep counts, pass/fail, next-session load, safety limits) is done by our own code. The LLM only writes text or proposes a plan that our code then checks.
 
 ## Setup and credentials
 
 1. Get a free key from Google AI Studio (aistudio.google.com → Get API key).
 2. Copy `.env.example` to `.env` and set `GEMINI_API_KEY=...`. `.env` is gitignored and must never be committed.
-3. Optional settings in `.env`: `LLM_PROVIDER` (`gemini` or `none`), `GEMINI_MODEL`, `LLM_TIMEOUT_SECONDS`.
+3. Optional settings in `.env`: `LLM_PROVIDER` (`gemini` or `none`), `GEMINI_MODEL`, `GEMINI_THINKING_LEVEL` (default `low`), `LLM_TIMEOUT_SECONDS` (default 20).
 
 The key is read only from the environment (`backend/llm/client.py`). It is never logged, stored, or included in error messages. With no key, or with `LLM_PROVIDER=none`, the app uses rule-based template text instead, so the whole app still runs end to end.
 
-`GET /health` shows which LLM is active (`"llm": "gemini:gemini-3.8-flash"` or `null`).
+`GET /health` shows which LLM is active (`"llm": "gemini:gemini-3.5-flash-lite"` or `null`).
 
 ## API workflow
 
@@ -33,6 +33,8 @@ POST /plan ─► profile ─► Gemini (JSON mode, WeeklyPlan schema) ─► Py
                                                                     template plan (always passes)
 ```
 
+**Model choice (measured with `scripts/check_llm.py`):** `gemini-3.8-flash` on the free tier answered the plan request once in 7.1 s but otherwise ran into the server deadline (HTTP 504 after about 58 s) on both requests. `gemini-3.5-flash-lite` answered feedback in 1.3 s and the plan in 1.7 s, both valid on the first attempt, so it is the default. Thinking is set to `low` because these short tasks don't need deep reasoning. Requests time out after 20 s and temporary errors (429, 500, 503) are retried once, so a slow LLM falls back to template text instead of stalling an upload.
+
 Every call uses Gemini's JSON mode (`response_mime_type="application/json"` plus `response_json_schema` built from our Pydantic models). Replies are still validated in our code, because JSON mode can return truncated or off-schema output.
 
 ## 1. Feedback writer (`backend/llm/feedback.py`)
@@ -51,7 +53,8 @@ Rules:
 - Do not change the next-session decision; explain it in plain words.
 - Plain language for a beginner: say "thighs parallel to the floor", not
   "knee flexion angle". Mention at most one number per sentence.
-- At most 3 tips, each one short actionable sentence. If every rep passed,
+- summary and next_session: 1-2 sentences each. At most 3 tips, each one
+  short actionable sentence (under 25 words). If every rep passed,
   give encouragement and one thing to keep doing.
 - If there are warnings (camera angle, visibility), mention the most
   important one first, because the measurements may be less reliable.
@@ -64,10 +67,12 @@ Rules:
 **Output schema (`Feedback`):**
 
 ```json
-{"summary": "1-2 sentences (max 400 chars)",
+{"summary": "1-2 sentences",
   "tips": ["up to 3 short tips"],
-  "next_session": "1-2 sentences explaining the decision (max 400 chars)"}
+  "next_session": "1-2 sentences explaining the decision"}
 ```
+
+Length limits are enforced by our code after the reply (`check_feedback`: extra tips dropped, any field over 400 characters → template fallback), not in the schema sent to Gemini. Keeping the schema free of length constraints also keeps constrained decoding simple.
 
 **Returned by the API** (in `POST /analyze` under `feedback`): the fields above plus `source` (`llm` or `template`), `model`, and `fallback_reason` when the template was used. The LLM is skipped when no reps were detected.
 
@@ -144,8 +149,9 @@ Allowed exercises:
 - **Free-tier data use:** on Gemini's free tier, Google may use prompts and responses to improve its products. We only send numbers, error codes, and the structured profile, never video or personal details. A paid key avoids this.
 - **Rate limits and outages:** free-tier quotas are small. A rate-limit error (HTTP 429), timeout, or bad key makes the app fall back to template text, with the reason in `fallback_reason`.
 - **Wording can still be wrong:** the prompt tells the model to use only the given facts, and the decision itself comes from our code. But the free-text wording is not checked word by word: it could misstate a number or sound overconfident. The structured report is the source of truth.
+- **Observed in testing:** with Flash-Lite, the feedback was accurate (2 of 3 reps passed, deepen the shallow rep) but added one generic tip ("keep your torso stable") that wasn't tied to an error. A plan rationale said "squat pattern twice a week" when the plan had squats on all 3 days. The plan itself passed every check; only the free-text rationale is unchecked.
 - **Plans are not personalized coaching:** the library and bounds keep plans safe and generic. They don't account for injuries or medical conditions, and the app is not medical advice.
-- **Latency:** `/analyze` waits for the feedback call (up to `LLM_TIMEOUT_SECONDS`, default 30 s) before responding.
+- **Latency:** `/analyze` waits for the feedback call (up to `LLM_TIMEOUT_SECONDS`, default 20 s; about 1-2 s with Flash-Lite in our tests) before responding.
 - **Non-determinism:** the same input can give different wording or plans. Tests use a fake client, so they are deterministic and never call the API.
 
 ## What the team built vs. what the LLM does

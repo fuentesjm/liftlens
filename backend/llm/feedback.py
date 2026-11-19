@@ -23,7 +23,8 @@ Rules:
 - Do not change the next-session decision; explain it in plain words.
 - Plain language for a beginner: say "thighs parallel to the floor", not
   "knee flexion angle". Mention at most one number per sentence.
-- At most 3 tips, each one short actionable sentence. If every rep passed,
+- summary and next_session: 1-2 sentences each. At most 3 tips, each one
+  short actionable sentence (under 25 words). If every rep passed,
   give encouragement and one thing to keep doing.
 - If there are warnings (camera angle, visibility), mention the most
   important one first, because the measurements may be less reliable.
@@ -32,11 +33,29 @@ Rules:
 """
 
 
+# No max-length constraints in the schema sent to Gemini (keeps constrained
+# decoding simple). Lengths are asked for in the prompt and enforced in
+# check_feedback() instead.
 class Feedback(BaseModel):
-    summary: str = Field(description="1-2 sentences on how the set went", max_length=400)
-    tips: list[str] = Field(description="up to 3 short actionable coaching tips", max_length=3)
-    next_session: str = Field(description="1-2 sentences explaining the next-session decision",
-                              max_length=400)
+    summary: str = Field(description="1-2 sentences on how the set went")
+    tips: list[str] = Field(description="up to 3 short actionable coaching tips")
+    next_session: str = Field(description="1-2 sentences explaining the next-session decision")
+
+
+MAX_TIPS = 3
+MAX_CHARS = 400  # per text field
+
+
+def check_feedback(fb: Feedback) -> Feedback:
+    """Enforce length limits on the LLM reply (extra tips are dropped)."""
+    fb = Feedback(summary=fb.summary.strip(), next_session=fb.next_session.strip(),
+                  tips=[t.strip() for t in fb.tips if t.strip()][:MAX_TIPS])
+    too_long = [len(fb.summary), len(fb.next_session), *map(len, fb.tips)]
+    if not fb.summary or not fb.next_session:
+        raise LLMError("feedback reply had an empty field")
+    if max(too_long) > MAX_CHARS:
+        raise LLMError(f"feedback reply too long ({max(too_long)} chars)")
+    return fb
 
 
 def feedback_input(report: dict, next_workout: dict) -> dict:
@@ -87,7 +106,7 @@ def write_feedback(report: dict, next_workout: dict, client: LLMClient | None) -
         prompt = ("Write feedback for this set.\n\n"
                   + json.dumps(feedback_input(report, next_workout), indent=2))
         try:
-            fb = client.generate_json(FEEDBACK_SYSTEM_PROMPT, prompt, Feedback)
+            fb = check_feedback(client.generate_json(FEEDBACK_SYSTEM_PROMPT, prompt, Feedback))
             return {**fb.model_dump(), "source": "llm", "model": client.name}
         except LLMError as e:
             fallback_reason = str(e)

@@ -6,6 +6,7 @@ and one plan request, and prints what comes back.
 
 import json
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -30,10 +31,14 @@ client = get_llm_client()
 if client is None:
     sys.exit("No LLM configured: set GEMINI_API_KEY in .env (see .env.example).")
 print(f"Using {client.name}\n\n--- Feedback ---")
+t = time.time()
 fb = write_feedback(REPORT, DECISION, client)
 print(json.dumps(fb, indent=2))
+print(f"({time.time() - t:.1f} s)")
 print("\n--- Plan (muscle, beginner, 3 days, dumbbells) ---")
+t = time.time()
 plan = generate_plan(Profile(goal="muscle", days_per_week=3, equipment="dumbbells"), client)
 print(json.dumps(plan, indent=2))
+print(f"({time.time() - t:.1f} s)")
 ok = fb["source"] == "llm" and plan["source"] == "llm"
 print("\nLLM OK" if ok else "\nFell back to templates: see fallback_reason above.")
