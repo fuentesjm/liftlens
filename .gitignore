@@ -1,0 +1,15 @@
+# Secrets
+.env
+
+# Large/generated files
+models/*.task
+*.mp4
+!samples/*.mp4
+reports/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
