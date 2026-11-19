@@ -22,10 +22,11 @@ class SessionStore:
         self.dir = Path(data_dir) / "sessions"
         self.dir.mkdir(parents=True, exist_ok=True)
 
-    def save(self, report: dict) -> dict:
+    def save(self, report: dict, workout: dict | None = None) -> dict:
         session = {
             "session_id": uuid.uuid4().hex,
-            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "created_at": datetime.now(timezone.utc).isoformat(timespec="microseconds"),
+            "workout": workout or {},
             "report": report,
         }
         self._path(session["session_id"]).write_text(json.dumps(session, indent=2))
@@ -37,10 +38,15 @@ class SessionStore:
         path = self._path(session_id)
         return json.loads(path.read_text()) if path.exists() else None
 
+    def history(self, exercise: str | None = None) -> list[dict]:
+        """Full sessions, newest first, optionally for one exercise."""
+        sessions = [json.loads(p.read_text()) for p in self.dir.glob("*.json")]
+        if exercise:
+            sessions = [s for s in sessions if s["report"]["exercise"] == exercise]
+        return sorted(sessions, key=lambda s: s["created_at"], reverse=True)
+
     def list(self) -> list[dict]:
         """Short summaries, newest first."""
-        sessions = [json.loads(p.read_text()) for p in self.dir.glob("*.json")]
-        sessions.sort(key=lambda s: s["created_at"], reverse=True)
         return [
             {
                 "session_id": s["session_id"],
@@ -49,8 +55,9 @@ class SessionStore:
                 "video": s["report"]["video"],
                 "rep_count": s["report"]["rep_count"],
                 "form_score": s["report"]["form_score"],
+                "workout": s.get("workout", {}),
             }
-            for s in sessions
+            for s in self.history()
         ]
 
     def _path(self, session_id: str) -> Path:

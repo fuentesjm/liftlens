@@ -6,7 +6,6 @@ models/*.task
 reports/
 data/
 samples/
-
 # Videos: never commit clips of other people. Only the team's own sample
 # clips in samples/ (as .mp4) are allowed.
 *.mp4

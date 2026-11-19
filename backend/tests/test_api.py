@@ -24,9 +24,9 @@ def client(settings, monkeypatch):
     return TestClient(api.create_app(settings))
 
 
-def upload(client, name="squat.mp4", data=FAKE_VIDEO, exercise="squat"):
+def upload(client, name="squat.mp4", data=FAKE_VIDEO, exercise="squat", **workout):
     return client.post("/analyze", files={"file": (name, data, "video/mp4")},
-                       data={"exercise": exercise})
+                       data={"exercise": exercise, **workout})
 
 
 def test_health_reports_model(client):
@@ -51,7 +51,7 @@ def test_sessions_are_listed_and_fetchable(client):
     assert {s["session_id"] for s in listed} == {first["session_id"], second["session_id"]}
     assert listed[0]["rep_count"] == 3 and listed[0]["form_score"] == 0.67
     got = client.get(f"/sessions/{first['session_id']}").json()
-    assert got == first
+    assert got == {k: v for k, v in first.items() if k != "next_workout"}
 
 
 def test_unknown_or_malformed_session_is_404(client):
@@ -88,3 +88,26 @@ def test_missing_model_is_503(tmp_path):
     c = TestClient(api.create_app(s))
     assert c.get("/health").json()["model_ready"] is False
     assert upload(c).status_code == 503
+
+
+# --- Workout fields and next-workout decision ------------------------------------
+def test_analyze_saves_workout_and_returns_decision(client):
+    # Synthetic set: 3 reps, rep 2 shallow -> form score 0.67 = form breakdown -> hold.
+    body = upload(client, load="95", unit="lb", target_reps="3", rpe="7").json()
+    assert body["workout"] == {"load": 95.0, "unit": "lb", "target_reps": 3, "rpe": 7}
+    assert body["next_workout"]["decision"] == "hold"
+    assert body["next_workout"]["next"] == {"load": 95.0, "unit": "lb", "target_reps": 3}
+
+
+def test_next_workout_endpoint(client):
+    assert client.get("/next-workout").status_code == 404  # nothing saved yet
+    upload(client, load="95", target_reps="5")               # only 3 of 5 reps -> reduce
+    r = client.get("/next-workout", params={"exercise": "squat"})
+    assert r.status_code == 200
+    assert r.json()["decision"] == "reduce" and r.json()["next"]["load"] == 90.0
+
+
+@pytest.mark.parametrize("field,value", [("rpe", "11"), ("load", "-5"), ("unit", "stone"),
+                                         ("target_reps", "0")])
+def test_rejects_invalid_workout_fields(client, field, value):
+    assert upload(client, **{field: value}).status_code == 422

@@ -6,9 +6,11 @@ Then open http://127.0.0.1:8000/docs to try the endpoints in the browser.
 
 Endpoints
     GET  /health                 server is up; is the pose model downloaded?
-    POST /analyze                upload a video -> per-rep form report (saved as a session)
+    POST /analyze                upload a video (+ load, target reps, RPE) -> per-rep form
+                                 report and next-session decision (saved as a session)
     GET  /sessions               list saved sessions (newest first)
     GET  /sessions/{session_id}  one saved session with its full report
+    GET  /next-workout           next-session load and reps from the saved history
 """
 
 from __future__ import annotations
@@ -17,11 +19,14 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from typing import Literal, Optional
+
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.analysis.analyze import NoPersonDetected, analyze_sequence
 from backend.analysis.pose import extract_pose
+from backend.planning.adaptation import next_workout
 
 from .settings import Settings
 from .storage import SessionStore
@@ -51,7 +56,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # A plain `def` (not `async def`) so FastAPI runs it in a worker thread:
     # pose extraction takes seconds and would otherwise block the server.
     @app.post("/analyze")
-    def analyze(file: UploadFile = File(...), exercise: str = Form("squat")) -> dict:
+    def analyze(
+        file: UploadFile = File(...),
+        exercise: str = Form("squat"),
+        load: float = Form(0.0, ge=0, le=2000, description="weight used; 0 = bodyweight"),
+        unit: Literal["lb", "kg"] = Form("lb"),
+        target_reps: Optional[int] = Form(None, ge=1, le=100, description="reps you planned to do"),
+        rpe: Optional[int] = Form(None, ge=1, le=10, description="how hard it felt, 1-10"),
+    ) -> dict:
         if exercise not in SUPPORTED_EXERCISES:
             raise HTTPException(400, f"Unsupported exercise '{exercise}'. Supported: squat.")
         name = Path(file.filename or "").name  # drop any folder part of the name
@@ -78,7 +90,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except NoPersonDetected:
             raise HTTPException(422, "No person was detected in the video. Record from the side "
                                      "with your whole body in frame.")
-        return store.save(report)
+        workout = {"load": load, "unit": unit, "target_reps": target_reps, "rpe": rpe}
+        session = store.save(report, workout)
+        return {**session, "next_workout": next_workout(store.history(exercise))}
 
     @app.get("/sessions")
     def list_sessions() -> list[dict]:
@@ -90,6 +104,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if session is None:
             raise HTTPException(404, "Session not found.")
         return session
+
+    @app.get("/next-workout")
+    def get_next_workout(exercise: str = Query("squat")) -> dict:
+        history = store.history(exercise)
+        if not history:
+            raise HTTPException(404, f"No saved {exercise} sessions yet. Upload a set first.")
+        return next_workout(history)
 
     return app
 
