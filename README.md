@@ -2,6 +2,8 @@
 
 AI workout planning with video-based form review. Team: Jose Fuentes, Perry Wang.
 
+Phase 2 progress report: [`report/liftlens_phase2.pdf`](report/liftlens_phase2.pdf).
+
 A user films a set of squats from the side and uploads it. LiftLens counts the reps, checks each rep's depth and torso lean, writes coaching feedback, and decides the weight and reps for the next session. It also generates a weekly plan from the user's goal and equipment.
 
 ## Status
@@ -10,11 +12,11 @@ A user films a set of squats from the side and uploads it. LiftLens counts the r
 |---|---|
 | Squat analysis pipeline (pose → angles → reps → form rules → JSON report) | **Done.** Unit-tested on synthetic data |
 | Accuracy evaluation on the team's labeled clips | **Done (preliminary).** 3 clips; see [Preliminary results](#preliminary-results) |
-| Larger evaluation set (more lifters, held-out clips) | Planned |
 | FastAPI backend (upload, saved sessions, next workout, plan) | **Done.** API-tested |
 | Adaptation engine (next-session load and reps) | **Done.** Rule-based; scenario-tested |
 | LLM feedback writer and plan generator (Gemini, safety-checked, template fallback) | **Done.** Tested with a fake LLM and live with Gemini; see [`docs/llm.md`](docs/llm.md) |
 | Next.js frontend (Today, Record a set, per-rep results with chart and replay, Plan, History) | **Done** |
+| Larger evaluation set (more lifters, held-out clips) | Planned |
 | Skeleton overlay on the replay video | Planned (the results page already replays each rep in sync with the chart) |
 | Push-up analysis | Planned |
 | User accounts | Planned |
@@ -29,6 +31,12 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python scripts/download_model.py   # downloads the pose model into models/
 cp .env.example .env               # then edit .env (see below)
+```
+
+If the model download fails with `CERTIFICATE_VERIFY_FAILED` (common with python.org installs on macOS), run `open "/Applications/Python 3.11/Install Certificates.command"` (match your Python version), or download it with curl:
+
+```bash
+curl -L -o models/pose_landmarker_full.task https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task
 ```
 
 Settings are environment variables listed in `.env.example`. `.env` is gitignored and must never be committed.
