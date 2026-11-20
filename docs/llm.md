@@ -85,6 +85,18 @@ Length limits are enforced by our code after the reply (`check_feedback`: extra 
   "source": "template", "model": null, "fallback_reason": "no LLM configured"}
 ```
 
+**Example (live Gemini output, `gemini-3.5-flash-lite`, 1.3 s):** recorded with `scripts/check_llm.py` for a sample set where 2 of 3 reps passed and rep 2 was too shallow. This run used the earlier input format, which sent knee angles instead of thigh angles; the prompt and output schema were the same.
+
+```json
+{"summary": "You completed 2 out of 3 reps with good form during your squat set. Focus on consistency as you continue to build your strength.",
+  "tips": ["Aim to get your thighs parallel to the floor on every single rep.",
+           "Keep your torso stable throughout the movement."],
+  "next_session": "Keep the same weight and target for your next session while you work on improving your depth.",
+  "source": "llm", "model": "gemini:gemini-3.5-flash-lite"}
+```
+
+Compared with the template, the LLM version is more conversational and explains the "hold" decision without changing it. It also added one generic tip ("keep your torso stable") that no rep's error called for; this is listed under Limitations.
+
 ## 2. Plan generator (`backend/llm/plan.py`)
 
 **Input:** a profile with only structured fields (no free text, no health information): `goal` (strength / muscle / general_fitness), `experience` (beginner / intermediate), `days_per_week` (2-5), `equipment` (bodyweight / dumbbells / full_gym), `session_minutes` (20-90).
@@ -143,6 +155,17 @@ Allowed exercises:
 **Our code adds** `form_check: true/false` to each exercise (true for squat variants the video analyzer supports). The LLM does not decide this.
 
 **Returned by the API** (`POST /plan`, saved and returned by `GET /plan`): `profile`, `plan`, `source`, `model`, `attempts` (LLM) or `fallback_reason` (template).
+
+**Example (live Gemini output, `gemini-3.5-flash-lite`, 1.7 s, passed every safety check on the first attempt):** profile = build muscle, beginner, 3 days, dumbbells, 45 minutes.
+
+| Day 1 (Full Body A) | Day 2 (Full Body B) | Day 3 (Full Body C) |
+|---|---|---|
+| Goblet squat 3×10, rest 90 s (video check) | Bodyweight squat 3×12, rest 90 s (video check) | Goblet squat 3×10, rest 90 s (video check) |
+| Dumbbell bench press 3×10, 90 s | Dumbbell shoulder press 3×10, 90 s | Reverse lunge 3×10, 90 s |
+| Dumbbell row 3×10, 90 s | Dumbbell Romanian deadlift 3×10, 90 s | Dumbbell row 3×10, 90 s |
+| Glute bridge 3×12, 60 s | Push-up 3×10, 60 s | Calf raise 3×15, 60 s |
+
+Rationale written by the model: *"This 3-day full-body dumbbell routine focuses on muscle hypertrophy for a beginner. It incorporates the squat pattern twice a week and balances upper push, upper pull, and lower body movements efficiently within a 45-minute timeframe."* The plan itself is sound (8–15 reps for a muscle goal, push/pull/legs balanced, 12 sets per day). The rationale says "twice a week" although squats appear on all 3 days: the rationale is free text and not checked by our code, while the plan's structure is.
 
 ## Limitations
 

@@ -10,6 +10,29 @@ AI workout planning with video-based form review. Team: Jose Fuentes, Perry Wang
 
 A user films a set of squats from the side and uploads it. LiftLens counts the reps, checks each rep's depth and torso lean, writes coaching feedback, and decides the weight and reps for the next session. It also generates a weekly plan from the user's goal and equipment.
 
+## Screenshots
+
+Real output from the running app with the pose model, on the team's bad-form clip (`samples/demo_bad_form.mov`). These were taken without an API key, so coach notes use template text; see [`docs/llm.md`](docs/llm.md) for live Gemini output.
+
+**Results:** every rep measured; all three stopped 22–28° above parallel and were flagged. The re-rack at the end (grey) wasn't counted.
+
+![Results page](docs/screenshots/results.png)
+
+| Today: the next set after the bad set ("back off"), form over time, the week | Record a set: upload with preview, weight, reps, RPE |
+|---|---|
+| ![Today page](docs/screenshots/today.png) | ![Record page](docs/screenshots/record.png) |
+
+## From proof of concept to MVP
+
+Each step was tested before the next one was built:
+
+1. **Proof of concept: command-line analyzer.** Video → MediaPipe pose → knee angle → rep segmentation → form rules → JSON report, run on two sample clips. It showed that rep counting and form checks are feasible from a single phone video. The first real clip already failed with fixed thresholds: a lifter who stood with soft knees never finished a rep. That led to thresholds that adapt to each person's standing angle, plus a camera-angle warning.
+2. **API.** FastAPI endpoints for upload, saved sessions, and validation. Videos are deleted after analysis.
+3. **Adaptation engine.** Rule-based progression from session history, so every upload produces a next set.
+4. **LLM features.** Gemini feedback and weekly plans, with schema validation, safety checks, and template fallbacks. The first model (`gemini-3.8-flash`) timed out on the free tier, so we measured it against `gemini-3.5-flash-lite` and switched.
+5. **Web app (MVP).** A Next.js frontend that connects everything into one flow: plan → record → per-rep results with chart and replay → next set → history.
+6. **Evaluation on the team's own clips.** The first run counted 4, 6, and 4 reps on 3-rep clips and passed every shallow rep. Looking at the frames showed why: unracking and re-racking the bar were counted as reps, and a slightly angled camera made shallow reps look deep. The fixes were a setup-movement filter, a camera-angle-robust depth measure, and an unsteady-tracking warning. After them, 2 of 3 clips are fully correct; the third is limited by plates hiding the hips (see [Preliminary results](#preliminary-results)).
+
 ## Status
 
 | Component | Status |
