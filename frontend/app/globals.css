@@ -15,6 +15,7 @@
   --plate-yellow: #e5ad0b;
   --pass-wash: rgba(28, 124, 69, 0.12);
   --fail-wash: rgba(200, 48, 43, 0.12);
+  --ignored-wash: rgba(86, 101, 109, 0.12);
   --focus: #1d4ed8;
 
   --narrow: 68%;
@@ -43,6 +44,7 @@
     --plate-yellow: #f2c443;
     --pass-wash: rgba(76, 194, 127, 0.16);
     --fail-wash: rgba(240, 106, 98, 0.16);
+    --ignored-wash: rgba(154, 168, 174, 0.14);
     --focus: #8aa9ff;
     color-scheme: dark;
   }
@@ -441,6 +443,8 @@ select:focus {
 .trace .band { cursor: pointer; }
 .trace .band.pass { fill: var(--pass-wash); }
 .trace .band.fail { fill: var(--fail-wash); }
+.trace .band.ignored { fill: var(--ignored-wash); cursor: default; }
+.trace text.ignored-label { fill: var(--steel); font-size: 11px; }
 .trace .band:hover { filter: brightness(0.93); }
 .trace .line { fill: none; stroke: var(--iron); stroke-width: 2.5; stroke-linejoin: round; }
 .trace .depth { stroke: var(--plate-blue); stroke-width: 1.5; stroke-dasharray: 6 5; }

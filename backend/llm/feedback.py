@@ -65,12 +65,12 @@ def feedback_input(report: dict, next_workout: dict) -> dict:
         "reps_passed": report["reps_passed"],
         "form_score": report["form_score"],
         "reps": [
-            {"rep": r["number"], "bottom_knee_angle_deg": r["bottom_knee_angle"],
+            {"rep": r["number"], "thigh_above_parallel_deg": r["bottom_thigh_angle"],
              "torso_lean_deg": r["torso_lean_at_bottom"], "errors": r["errors"]}
             for r in report["reps"]
         ],
         "limits": {
-            "depth_pass_if_knee_angle_at_most_deg": report["thresholds"]["max_bottom_knee_angle"],
+            "depth_pass_if_thigh_above_parallel_at_most_deg": report["thresholds"]["max_thigh_above_parallel"],
             "lean_pass_if_torso_lean_at_most_deg": report["thresholds"]["max_torso_lean"],
         },
         "warnings": report["warnings"],

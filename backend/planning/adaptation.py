@@ -109,6 +109,7 @@ def next_workout(history: list[dict], cfg: AdaptConfig = DEFAULT_ADAPT_CONFIG) -
     # 2. Missed reps or poor form: reduce.
     if missed or poor:
         why = (f"You completed {done} of {target} target reps" if missed
+               else "None of the reps had good form" if score == 0
                else f"Only {score:.0%} of reps had good form")
         if bodyweight:
             new_reps = done if missed else max(1, target - cfg.bodyweight_rep_step)

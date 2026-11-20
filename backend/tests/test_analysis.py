@@ -7,7 +7,7 @@ from backend.analysis.config import SquatConfig
 from backend.analysis.pose import Landmark
 from backend.analysis.reps import segment_reps
 from backend.analysis.smoothing import centered_moving_average, interpolate_missing
-from backend.tests.synthetic import figure, squat_sequence
+from backend.tests.synthetic import figure, squat_sequence, thigh_above_parallel
 
 CFG = SquatConfig()
 
@@ -65,7 +65,7 @@ def test_too_quick_dip_is_ignored():
 
 # --- Form rules ---------------------------------------------------------------------
 def test_flags_only_the_shallow_rep():
-    seq = squat_sequence([90, 120, 88])  # rep 2 stops at 120 deg
+    seq = squat_sequence([60, 120, 62])  # rep 2 stops with the thigh 48 deg above parallel
     report = analyze_sequence(seq, "synthetic.mp4", CFG)
     assert report["rep_count"] == 3
     assert [r["errors"] for r in report["reps"]] == [[], ["shallow_depth"], []]
@@ -74,7 +74,7 @@ def test_flags_only_the_shallow_rep():
 
 
 def test_flags_forward_lean():
-    seq = squat_sequence([90, 90], leans=[25.0, 65.0])
+    seq = squat_sequence([60, 60], leans=[25.0, 65.0])
     report = analyze_sequence(seq, "synthetic.mp4", CFG)
     assert report["reps"][0]["errors"] == []
     assert report["reps"][1]["errors"] == ["forward_lean"]
@@ -137,3 +137,47 @@ def test_report_includes_downsampled_trace():
     assert len(trace["t"]) == len(trace["knee"]) == len(trace["lean"])
     assert trace["t"][1] - trace["t"][0] == pytest.approx(0.1, abs=0.01)  # ~10 per second
     assert min(trace["knee"]) == pytest.approx(90.0, abs=2.0)
+
+
+
+# --- Depth from heights, setup movements, tracking check ---------------------------
+def test_thigh_angle_matches_geometry():
+    rep = analyze_sequence(squat_sequence([60]), "s.mp4", CFG)["reps"][0]
+    assert rep["bottom_thigh_angle"] == pytest.approx(thigh_above_parallel(60), abs=1.5)  # 6 deg
+    assert rep["errors"] == []
+
+
+def _squeeze_x(seq, factor):
+    """Simulate turning the camera around the person: horizontal distances shrink."""
+    for frame in seq.frames:
+        for name, lm in frame.items():
+            frame[name] = type(lm)(500 + (lm.x - 500) * factor, lm.y, lm.visibility)
+    return seq
+
+
+def test_depth_check_survives_angled_camera():
+    side_on = analyze_sequence(squat_sequence([60, 95]), "s.mp4", CFG)
+    angled = analyze_sequence(_squeeze_x(squat_sequence([60, 95]), 0.6), "s.mp4", CFG)
+    for a, b in zip(side_on["reps"], angled["reps"]):
+        assert b["bottom_thigh_angle"] == pytest.approx(a["bottom_thigh_angle"], abs=1.0)
+        assert b["errors"] == a["errors"]
+    assert [r["errors"] for r in angled["reps"]] == [[], ["shallow_depth"]]
+    # The on-screen knee angle, by contrast, is distorted by the angle.
+    assert abs(angled["reps"][1]["bottom_knee_angle"] - 95) > 5
+
+
+def test_rack_setup_movements_are_not_reps():
+    # Unrack (hands on the racked bar), two squats, re-rack.
+    seq = squat_sequence([100, 60, 60, 125], hands_up=[True, False, False, True])
+    report = analyze_sequence(seq, "s.mp4", CFG)
+    assert report["rep_count"] == 2
+    assert len(report["ignored_movements"]) == 2
+    assert all("setup" in m["reason"] for m in report["ignored_movements"])
+
+
+def test_unsteady_tracking_warns():
+    steady = analyze_sequence(squat_sequence([60, 60]), "s.mp4", CFG)
+    wobbly = analyze_sequence(squat_sequence([60, 60], foot_wobble=120.0), "s.mp4", CFG)
+    assert not any("unsteady" in w for w in steady["warnings"])
+    assert any("unsteady" in w for w in wobbly["warnings"])
+    assert wobbly["camera"]["foot_travel"] > CFG.max_foot_travel

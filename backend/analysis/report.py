@@ -10,7 +10,8 @@ from .form_rules import CUES, RepResult
 
 
 def build_report(results: list[RepResult], series: SquatSeries, cfg: SquatConfig, video: str,
-                 thresholds_used: dict | None = None) -> dict:
+                 thresholds_used: dict | None = None, ignored: list[dict] | None = None,
+                 foot_travel: float | None = None) -> dict:
     total = len(results)
     passed = sum(r.passed for r in results)
 
@@ -24,6 +25,12 @@ def build_report(results: list[RepResult], series: SquatSeries, cfg: SquatConfig
         warnings.append(
             "You seem to be turned toward the camera. Film from the side "
             "(camera at hip height, facing your side) for accurate angles."
+        )
+    if foot_travel is not None and foot_travel > cfg.max_foot_travel:
+        warnings.append(
+            "Tracking was unsteady: your feet seemed to move during reps, which usually means part of "
+            "your body was blocked (by plates or the rack) or you stepped. Results may be inaccurate. "
+            "Film from a spot where your hips, knees, and ankles stay visible."
         )
     if total == 0:
         warnings.append("No reps detected. Check camera angle and that full squats are in the clip.")
@@ -46,7 +53,9 @@ def build_report(results: list[RepResult], series: SquatSeries, cfg: SquatConfig
         "reps": [{**asdict(r), "passed": r.passed} for r in results],
         "cues": cues,
         "warnings": warnings,
-        "camera": {"shoulder_width_ratio": round(series.shoulder_ratio, 2)},
+        "ignored_movements": ignored or [],
+        "camera": {"shoulder_width_ratio": round(series.shoulder_ratio, 2),
+                   "foot_travel": None if foot_travel is None else round(foot_travel, 2)},
         "thresholds_used": thresholds_used,
         "thresholds": asdict(cfg),
     }

@@ -17,12 +17,12 @@ from backend.llm.plan import Profile, generate_plan  # noqa: E402
 
 REPORT = {
     "exercise": "squat", "video": "sample", "rep_count": 3, "reps_passed": 2, "form_score": 0.67,
-    "reps": [{"number": 1, "bottom_knee_angle": 88.0, "torso_lean_at_bottom": 38.0, "errors": []},
-             {"number": 2, "bottom_knee_angle": 118.0, "torso_lean_at_bottom": 35.0,
+    "reps": [{"number": 1, "bottom_thigh_angle": 6.0, "torso_lean_at_bottom": 38.0, "errors": []},
+             {"number": 2, "bottom_thigh_angle": 28.0, "torso_lean_at_bottom": 35.0,
               "errors": ["shallow_depth"]},
-             {"number": 3, "bottom_knee_angle": 90.0, "torso_lean_at_bottom": 40.0, "errors": []}],
+             {"number": 3, "bottom_thigh_angle": 8.0, "torso_lean_at_bottom": 40.0, "errors": []}],
     "cues": ["Rep 2: Squat deeper: lower until your thighs are about parallel to the floor."],
-    "warnings": [], "thresholds": {"max_bottom_knee_angle": 100.0, "max_torso_lean": 50.0},
+    "warnings": [], "thresholds": {"max_thigh_above_parallel": 15.0, "max_torso_lean": 50.0},
 }
 DECISION = {"decision": "hold", "next": {"load": 0.0, "unit": "lb", "target_reps": 3},
             "reason": "67% of reps had good form. Keep the same load and reps and work on the cue."}

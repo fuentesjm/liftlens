@@ -67,13 +67,25 @@ function ReturningHero({ next, last }) {
         <MiniTrace
           trace={r.trace}
           reps={r.reps}
-          depth={r.thresholds.max_bottom_knee_angle}
-          label={`Knee angle during your last set. ${verdict}.`}
+          ignored={r.ignored_movements || []}
+          {...depthSeries(r)}
+          label={`Depth during your last set. ${verdict}.`}
         />
         <Link href={`/sessions/${last.session_id}`}>See every rep</Link>
       </div>
     </section>
   );
+}
+
+// New sessions chart the thigh angle above parallel; older ones only have the knee angle.
+function depthSeries(report) {
+  const t = report.trace || {};
+  if (Array.isArray(t.thigh) && report.thresholds.max_thigh_above_parallel != null) {
+    return { values: t.thigh, depth: report.thresholds.max_thigh_above_parallel, yMax: 95,
+             bottom: (rep) => rep.bottom_thigh_angle };
+  }
+  return { values: t.knee, depth: report.thresholds.max_bottom_knee_angle, yMax: 185,
+           bottom: (rep) => rep.bottom_knee_angle };
 }
 
 function FirstVisitHero({ hasPlan }) {
@@ -101,8 +113,10 @@ function FirstVisitHero({ hasPlan }) {
         <h2 className="hero-side-title">What you'll get back</h2>
         <MiniTrace
           trace={sample.trace}
+          values={sample.trace.thigh}
           reps={sample.reps}
-          depth={100}
+          depth={15}
+          bottom={(rep) => rep.bottom_thigh_angle}
           label="Example result: three reps, the second one too shallow."
         />
         <p className="muted small">

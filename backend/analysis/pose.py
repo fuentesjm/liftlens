@@ -17,7 +17,9 @@ from mediapipe.tasks.python.core.base_options import BaseOptions
 
 # MediaPipe landmark indices for the joints the squat analysis needs.
 LANDMARK_IDS = {
+    "nose": 0,
     "left_shoulder": 11, "right_shoulder": 12,
+    "left_wrist": 15, "right_wrist": 16,
     "left_hip": 23, "right_hip": 24,
     "left_knee": 25, "right_knee": 26,
     "left_ankle": 27, "right_ankle": 28,

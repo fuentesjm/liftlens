@@ -12,12 +12,14 @@ import argparse
 import json
 from pathlib import Path
 
+import numpy as np
+
 from .angles import compute_series
 from .config import DEFAULT_SQUAT_CONFIG, SquatConfig
 from .form_rules import evaluate_reps
 from .pose import DEFAULT_MODEL_PATH, PoseSequence, extract_pose
 from .report import build_report
-from .reps import adaptive_thresholds, segment_reps
+from .reps import adaptive_thresholds, segment_reps, split_setup_movements
 
 
 class NoPersonDetected(ValueError):
@@ -30,12 +32,28 @@ def analyze_sequence(seq: PoseSequence, video: str, cfg: SquatConfig = DEFAULT_S
     if series.valid_ratio == 0:
         raise NoPersonDetected("No person was clearly visible in any frame.")
     baseline, up, down = adaptive_thresholds(series.knee_angle, cfg)
-    reps = segment_reps(series.knee_angle, seq.fps, cfg, up=up, down=down)
+    candidates = segment_reps(series.knee_angle, seq.fps, cfg, up=up, down=down)
+    reps, setup = split_setup_movements(candidates, series.wrist_over_nose, series.thigh_angle, cfg)
     results = evaluate_reps(reps, series, cfg)
     used = {"standing_baseline": round(baseline, 1), "up": round(up, 1), "down": round(down, 1)}
-    report = build_report(results, series, cfg, video, used)
+    ignored = [{"start_time": round(float(series.timestamps[r.start]), 2),
+                "end_time": round(float(series.timestamps[r.end]), 2),
+                "reason": "setup movement (hands up on a racked bar)"} for r in setup]
+    report = build_report(results, series, cfg, video, used,
+                          ignored=ignored, foot_travel=foot_travel(reps, series))
     report["trace"] = downsample_trace(series, seq.fps)
     return report
+
+
+def foot_travel(reps, series) -> float | None:
+    """Median distance the ankle appears to move during a rep, in thigh lengths.
+
+    Feet stay planted in a real squat, so a large value means unreliable
+    tracking (body partly blocked) or stepping.
+    """
+    travel = [float(np.nanmax(w) - np.nanmin(w)) for r in reps
+              if np.isfinite(w := series.ankle_x[r.start:r.end + 1]).any()]
+    return float(np.median(travel)) if travel else None
 
 
 def downsample_trace(series, fps: float, hz: float = 10.0) -> dict:
@@ -47,6 +65,7 @@ def downsample_trace(series, fps: float, hz: float = 10.0) -> dict:
     return {
         "t": [round(float(x), 2) for x in series.timestamps[::step]],
         "knee": [round(float(x), 1) for x in series.knee_angle[::step]],
+        "thigh": [round(float(x), 1) for x in series.thigh_angle[::step]],
         "lean": [round(float(x), 1) for x in series.torso_lean[::step]],
     }
 
@@ -68,13 +87,13 @@ def print_debug(seq: PoseSequence, cfg: SquatConfig, step_seconds: float = 0.2) 
           f"valid_frames={series.valid_ratio:.0%}  shoulder_ratio={series.shoulder_ratio:.2f}")
     print(f"knee angle: min={knee.min():.1f}  max={knee.max():.1f}  standing baseline={baseline:.1f}   "
           f"(a rep needs < {down:.0f} then > {up:.0f})")
-    print(f"{'time(s)':>8} {'knee':>7} {'lean':>6}  state")
+    print(f"{'time(s)':>8} {'knee':>7} {'thigh':>6} {'lean':>6}  state")
     step = max(1, int(round(step_seconds * seq.fps)))
     for i in range(0, len(knee), step):
         k = knee[i]
         state = ("standing" if k >= up else "in squat" if k < down else "between")
         visible = seq.frames[i] is not None
-        print(f"{series.timestamps[i]:8.2f} {k:7.1f} {series.torso_lean[i]:6.1f}  "
+        print(f"{series.timestamps[i]:8.2f} {k:7.1f} {series.thigh_angle[i]:6.1f} {series.torso_lean[i]:6.1f}  "
               f"{state}{'' if visible else '  (no person found)'}")
     print("-" * 40)
 

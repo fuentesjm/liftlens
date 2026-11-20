@@ -8,12 +8,13 @@ A user films a set of squats from the side and uploads it. LiftLens counts the r
 
 | Component | Status |
 |---|---|
-| Squat analysis pipeline (pose → angles → reps → form rules → JSON report) | **Done.** Unit-tested on synthetic data; checked on 2 sample clips |
+| Squat analysis pipeline (pose → angles → reps → form rules → JSON report) | **Done.** Unit-tested on synthetic data |
+| Accuracy evaluation on the team's labeled clips | **Done (preliminary).** 3 clips; see [Preliminary results](#preliminary-results) |
+| Larger evaluation set (more lifters, held-out clips) | Planned |
 | FastAPI backend (upload, saved sessions, next workout, plan) | **Done.** API-tested |
 | Adaptation engine (next-session load and reps) | **Done.** Rule-based; scenario-tested |
 | LLM feedback writer and plan generator (Gemini, safety-checked, template fallback) | **Done.** Tested with a fake LLM and live with Gemini; see [`docs/llm.md`](docs/llm.md) |
 | Next.js frontend (Today, Record a set, per-rep results with chart and replay, Plan, History) | **Done** |
-| Accuracy evaluation on the team's own labeled clips | Planned |
 | Skeleton overlay on the replay video | Planned (the results page already replays each rep in sync with the chart) |
 | Push-up analysis | Planned |
 | User accounts | Planned |
@@ -52,7 +53,7 @@ Open http://localhost:3000 and follow the full flow:
 
 1. **Plan:** pick a goal, experience, equipment, and days, then **Create plan**.
 2. **Record a set:** choose a side-view squat video, enter the weight and target reps (and optionally RPE), then **Analyze set**.
-3. **Results:** the verdict, a knee-angle chart with each rep marked passed (green) or failed (red), the depth line, per-rep angles, coach notes, and the next set. Click a rep on the chart or **Replay** to jump the video to it.
+3. **Results:** the verdict, a depth chart (thigh angle above parallel) with each rep marked passed (green) or failed (red), the depth line, setup movements that weren't counted (grey), per-rep measurements, coach notes, and the next set. Click a rep on the chart or **Replay** to jump the video to it.
 4. **Today:** shows the next set, the last set's chart, form over time, and the week's plan. **Record this set** pre-fills the upload form.
 5. **History:** every set, newest first.
 
@@ -70,13 +71,13 @@ No video, pose model, or API key needed:
 python scripts/sample_result.py           # add --json for the full API-style output
 ```
 
-This builds a synthetic side-view squat set with known knee angles (rep bottoms at 86°, 118°, 89°). It then runs the set through the same analysis, adaptation, and feedback code the app uses. Expected output:
+This builds a synthetic side-view squat set with known geometry: rep 2 stops with the thigh about 26° above parallel. It then runs the set through the same analysis, adaptation, and feedback code the app uses. Expected output:
 
 ```
 Reps detected: 3   passed: 2   form score: 67%
-  Rep 1: bottom at 1.67 s, knee 86.6 deg, lean 43.8 deg -> PASS
-  Rep 2: bottom at 4.37 s, knee 118.4 deg, lean 37.8 deg -> FAIL shallow_depth
-  Rep 3: bottom at 7.07 s, knee 89.5 deg, lean 46.8 deg -> PASS
+  Rep 1: bottom at 1.67 s, thigh 7.9 deg above parallel, lean 43.8 deg -> PASS
+  Rep 2: bottom at 4.37 s, thigh 26.0 deg above parallel, lean 37.8 deg -> FAIL shallow_depth
+  Rep 3: bottom at 7.07 s, thigh 6.5 deg above parallel, lean 46.8 deg -> PASS
 
 Next set: HOLD -> 95 lb x 3
   67% of reps had good form. Keep the same load and reps and work on the form cue before progressing.
@@ -90,7 +91,7 @@ python -m pytest -q backend/tests
 
 All tests run without a video, the pose model, or an API key:
 
-- `test_analysis.py` generates synthetic side-view squats with known knee angles (`backend/tests/synthetic.py`). It checks rep counting, depth and lean detection, jitter rejection, timing, visibility warnings, soft-knee standing, the camera-angle warning, and the chart trace.
+- `test_analysis.py` generates synthetic side-view squats with known geometry (`backend/tests/synthetic.py`). It checks rep counting, depth and lean detection, depth with an angled camera, ignoring rack setup movements, the unsteady-tracking warning, jitter rejection, timing, visibility warnings, soft-knee standing, the camera-angle warning, and the chart trace.
 - `test_api.py` swaps the pose model for the same generator. It checks uploads, saved sessions, plans, workout fields, and every error response.
 - `test_adaptation.py` runs the adaptation rules on fake session histories: progress, hold, reduce, deload, retest, kg vs. lb, bodyweight, and old sessions without workout fields.
 - `test_llm.py` checks the LLM features with a fake client: feedback and plan parsing, the numbers-only prompt, length limits, retry on unsafe plans, every fallback, and that the template plan passes the safety checks for all profile combinations. No test calls the real API.
@@ -105,13 +106,29 @@ python scripts/evaluate.py --out eval_results.json
 
 It prints, per clip, the reps found vs. labeled and the predicted vs. labeled faulty reps. It then prints rep-count accuracy, precision/recall/F1 for each fault, and the processing time.
 
+### Preliminary results
+
+Three side-view clips of one team member, recorded by the team (`samples/`; labels in `samples/labels.csv`; full output in `docs/eval_results.json`):
+
+| Clip | Reps (true / found) | Shallow reps (labeled / flagged) | Notes |
+|---|---|---|---|
+| Empty barbell, good form | 3 / 3 | none / none | unrack and re-rack correctly ignored |
+| Loaded barbell, good form | 3 / 4 | none / 1–4 | plates and rack hide the hips; unsteady-tracking warning shown |
+| Bad form (shallow) | 3 / 3 | 1, 2, 3 / 1, 2, 3 | re-rack correctly ignored |
+
+- Rep count exact on 2 of 3 clips (mean absolute error 0.33 reps per clip).
+- Shallow-depth detection on the clips with the right rep count: 3 true positives, 0 false positives, 0 misses (precision 1.00, recall 1.00).
+- Processing takes about 0.6 s per second of video on the team's Apple M1 Mac.
+
+Before the fixes from this evaluation, the same clips gave 4, 6, and 4 reps (rack setup dips counted as reps), and all three shallow reps passed the old on-screen knee-angle rule. See Known limitations: the thresholds were tuned on these same clips.
+
 ### Analyze a single clip
 
 To analyze one of your own clips from the command line and see the JSON report:
 
 ```bash
 python -m backend.analysis.analyze path/to/your_squat_side.mp4
-python -m backend.analysis.analyze path/to/your_squat_side.mp4 --debug        # knee angle and lean over time
+python -m backend.analysis.analyze path/to/your_squat_side.mp4 --debug        # knee angle, thigh angle, and lean over time
 python -m backend.analysis.analyze path/to/your_squat_side.mp4 --out report.json
 ```
 
@@ -130,14 +147,18 @@ video ─► MediaPipe Pose Landmarker ─► joint angles ─► smoothing ─�
 ### Video analysis (`backend/analysis/`)
 
 1. **Pose estimation** (`pose.py`): the pretrained MediaPipe Pose Landmarker finds 33 body landmarks per frame. This is the only pretrained vision model.
-2. **Joint angles** (`angles.py`): picks the body side facing the camera, then computes the knee angle (hip–knee–ankle) and torso lean (shoulder–hip line vs. vertical) for every frame.
+2. **Joint angles** (`angles.py`): picks the body side facing the camera, then computes for every frame:
+   - the knee angle (hip–knee–ankle), used to find reps;
+   - the **thigh angle above parallel**, used for depth. It comes from heights only: sin(angle) = (knee height − hip height) / thigh length, where the thigh length is its on-screen height while standing. Turning the camera around the person squeezes horizontal distances but not heights, so this stays accurate when the camera isn't exactly side-on. The on-screen knee angle doesn't: on our bad-form clip it read 84–94° (looks deep enough) while the thighs were 22–28° above parallel;
+   - torso lean (shoulder–hip line vs. vertical), and wrist height relative to the nose.
 3. **Smoothing** (`smoothing.py`): fills frames where the body wasn't visible (linear interpolation) and smooths with a centered moving average.
 4. **Rep segmentation** (`reps.py`): a two-threshold state machine on the knee angle.
    - A rep starts when the angle drops below the *down* threshold and ends when it rises above the *up* threshold, so jitter between them can't count as extra reps.
    - The thresholds adapt to each clip. The person's standing angle is the 95th percentile of their knee angle. *Up* is 10° below that (at most 160°), and *down* is 15° below *up* (at most 140°).
    - This handles people who stand with soft knees, or a camera that isn't perfectly side-on.
-5. **Form rules** (`form_rules.py`): a rep fails *depth* if its lowest knee angle is above 100°. It fails *forward lean* if the torso is more than 50° from vertical at the bottom. Thresholds live in `config.py`.
-6. **Report** (`report.py`): rep count, per-rep times and angles, errors, form score (fraction of reps passed), coaching cues, warnings, the thresholds actually used, and a 10-per-second knee-angle trace for the chart. It warns when the person seems turned toward the camera, i.e. the two shoulders appear far apart relative to torso length.
+   - **Setup movements are dropped:** a knee bend where the hands are up near or above the head at the bottom is ducking under or returning a racked bar, not a rep (`split_setup_movements`). The report lists them under `ignored_movements`.
+5. **Form rules** (`form_rules.py`): a rep fails *depth* if, at its deepest point, the thigh is more than 15° above parallel. It fails *forward lean* if the torso is more than 50° from vertical there. Thresholds live in `config.py`.
+6. **Report** (`report.py`): rep count, per-rep times and angles, errors, form score (fraction of reps passed), coaching cues, warnings, the thresholds actually used, ignored setup movements, and 10-per-second knee- and thigh-angle traces for the charts. It warns when the person seems turned toward the camera (the shoulders appear far apart), and when tracking is unsteady (the feet appear to move during reps, usually because plates or the rack hide the hips).
 
 ### Adaptation engine (`backend/planning/adaptation.py`)
 
@@ -202,9 +223,9 @@ Error codes:
 |---|---|
 | `backend/analysis/analyze.py` | command-line entry point; runs the whole analysis pipeline |
 | `backend/analysis/pose.py` | MediaPipe pose extraction from a video file |
-| `backend/analysis/angles.py` | knee angle, torso lean, and camera-angle check per frame |
+| `backend/analysis/angles.py` | knee angle, thigh angle above parallel, torso lean, wrist height, and camera-angle check per frame |
 | `backend/analysis/smoothing.py` | gap filling and smoothing |
-| `backend/analysis/reps.py` | adaptive thresholds and rep segmentation |
+| `backend/analysis/reps.py` | adaptive thresholds, rep segmentation, and setup-movement filter |
 | `backend/analysis/form_rules.py` | per-rep form checks and cue text |
 | `backend/analysis/report.py` | JSON report |
 | `backend/analysis/config.py` | all analysis thresholds in one place |
@@ -217,7 +238,7 @@ Error codes:
 | `backend/api/settings.py` | server settings from environment variables |
 | `backend/tests/` | unit, API, adaptation, and LLM tests, and the synthetic squat generator |
 | `frontend/app/` | Next.js pages: Today (`page.jsx`), `record/`, `sessions/[id]/` (results), `plan/`, `history/` |
-| `frontend/components/KneeTrace.jsx` | knee-angle chart with rep bands, depth line, and video playhead |
+| `frontend/components/KneeTrace.jsx` | depth chart with rep bands, setup bands, depth line, and video playhead |
 | `frontend/components/MiniTrace.jsx`, `FormHistory.jsx` | home-page chart and form-over-time bars |
 | `frontend/lib/api.js` | all calls to the API (upload with progress) |
 | `docs/llm.md` | LLM prompts, API workflow, inputs and outputs, limitations, team contribution |
@@ -230,7 +251,9 @@ Error codes:
 
 - **Squats only.** Push-up analysis is planned.
 - **Side view only.** Knee cave-in (valgus) needs a front view and isn't checked. Filming at an angle makes the measured angles less reliable; the app warns when the person seems turned toward the camera.
-- **Not yet calibrated on real data.** Thresholds (100° depth, 50° lean, camera-angle ratio) are starting values. Accuracy on real labeled clips hasn't been measured yet. In the two sample clips we checked, rep counts were correct and the forward-lean mistake was caught. Depth calls near 100° are borderline.
+- **Small, non-independent evaluation.** The depth (15°) and setup-movement thresholds were chosen by looking at the same 3 clips they're evaluated on, all of one lifter in one gym. The results show feasibility, not general accuracy; a held-out set with more lifters is needed. The forward-lean rule (50°) hasn't been tested on a clip with a clear lean.
+- **Occlusion.** When plates or the rack hide the hips (our weighted clip), tracking fails: wrong rep count and wrong depth. The app warns, but can't correct it. Film from a spot where hips, knees, and ankles stay visible.
+- **Upright camera assumed.** The depth measure uses heights, so the phone should be upright and level, and the lifter shouldn't walk toward or away from it mid-set.
 - **No user accounts.** Everyone using one server shares the same history and plan.
 - **Replay only right after upload.** The server doesn't keep videos, so replay works only in the browser tab that uploaded the clip. The chart and numbers are always available.
 - **LLM limits.** On Gemini's free tier, Google may use prompts to improve its products; we send only numbers and the structured profile. Free-text wording isn't checked word by word and can be slightly off (examples in `docs/llm.md`). Every decision comes from our code, not the LLM.

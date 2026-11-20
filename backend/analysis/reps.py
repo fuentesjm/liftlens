@@ -70,3 +70,27 @@ def segment_reps(knee_angle: np.ndarray, fps: float, cfg: SquatConfig,
                 in_rep = False
                 last_standing = i
     return reps
+
+
+def deepest_frame(rep: Rep, thigh_angle: np.ndarray) -> int:
+    """Frame where the hips are lowest (smallest thigh angle) within the rep."""
+    window = thigh_angle[rep.start:rep.end + 1]
+    if np.all(np.isnan(window)):
+        return rep.bottom
+    return rep.start + int(np.nanargmin(window))
+
+
+def split_setup_movements(reps: list[Rep], wrist_over_nose: np.ndarray, thigh_angle: np.ndarray,
+                          cfg: SquatConfig) -> tuple[list[Rep], list[Rep]]:
+    """Separate real reps from setup movements (unracking / re-racking a bar).
+
+    When you duck under a racked bar or put it back, your hands are on a bar
+    that's fixed in the rack, so at the bottom of that knee bend they are up
+    near or above your head. During a real squat the hands stay at shoulder
+    height or lower. Returns (reps, ignored).
+    """
+    kept, ignored = [], []
+    for rep in reps:
+        gap = wrist_over_nose[deepest_frame(rep, thigh_angle)]
+        (ignored if np.isfinite(gap) and gap > cfg.max_wrist_over_nose else kept).append(rep)
+    return kept, ignored

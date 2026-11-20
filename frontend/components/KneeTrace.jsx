@@ -2,9 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// Knee angle over the whole set. The line dips at every rep, like the lifter
-// does; each rep's span is tinted green (passed) or red (failed), and the
-// dashed line marks the depth a rep has to reach. Click a rep to replay it.
+// Depth over the whole set: how far the thigh is above parallel (90 = standing,
+// 0 = parallel). The line dips at every rep, like the lifter does; each rep's
+// span is tinted green (passed) or red (failed), the dashed line marks the
+// depth a rep has to reach, and grey spans are setup movements that weren't
+// counted. Older sessions without the thigh trace fall back to the knee angle.
+// Click a rep to replay it.
 export default function KneeTrace({ report, currentTime = null, onSeek }) {
   const box = useRef(null);
   const [width, setWidth] = useState(800);
@@ -23,18 +26,29 @@ export default function KneeTrace({ report, currentTime = null, onSeek }) {
     );
   }
 
+  const thigh = Array.isArray(trace.thigh) && report.thresholds.max_thigh_above_parallel != null;
+  const values = thigh ? trace.thigh : trace.knee;
+  const depth = thigh ? report.thresholds.max_thigh_above_parallel : report.thresholds.max_bottom_knee_angle;
+  const bottomOf = (r) => (thigh ? r.bottom_thigh_angle : r.bottom_knee_angle);
+  const finite = values.filter((v) => v != null && Number.isFinite(v));
+
   const height = width < 560 ? 220 : 280;
-  const m = { top: 30, right: 12, bottom: 26, left: 40 };
-  const depth = report.thresholds.max_bottom_knee_angle;
+  const m = { top: 30, right: 12, bottom: 26, left: 52 };
   const tMax = trace.t[trace.t.length - 1] || 1;
-  const yMin = Math.min(70, Math.floor((Math.min(...trace.knee) - 5) / 10) * 10);
-  const yMax = 185;
+  const yMin = thigh
+    ? Math.min(-10, Math.floor((Math.min(...finite) - 5) / 10) * 10)
+    : Math.min(70, Math.floor((Math.min(...finite) - 5) / 10) * 10);
+  const yMax = thigh ? 95 : 185;
 
   const x = (t) => m.left + (t / tMax) * (width - m.left - m.right);
   const y = (a) => m.top + ((yMax - a) / (yMax - yMin)) * (height - m.top - m.bottom);
 
-  const points = trace.t.map((t, i) => `${x(t).toFixed(1)},${y(trace.knee[i]).toFixed(1)}`).join(" ");
-  const yTicks = [90, 120, 150, 180].filter((v) => v >= yMin);
+  const points = trace.t
+    .map((t, i) => (Number.isFinite(values[i]) ? `${x(t).toFixed(1)},${y(values[i]).toFixed(1)}` : null))
+    .filter(Boolean)
+    .join(" ");
+  const yTicks = (thigh ? [0, 30, 60, 90] : [90, 120, 150, 180]).filter((v) => v >= yMin);
+  const tickLabel = (v) => (thigh && v === 0 ? "parallel" : `${v}°`);
   const xStep = tMax > 20 ? 5 : tMax > 8 ? 2 : 1;
   const xTicks = Array.from({ length: Math.floor(tMax / xStep) + 1 }, (_, i) => i * xStep);
 
@@ -50,7 +64,7 @@ export default function KneeTrace({ report, currentTime = null, onSeek }) {
           <g key={v}>
             <line className="grid" x1={m.left} x2={width - m.right} y1={y(v)} y2={y(v)} />
             <text x={m.left - 8} y={y(v) + 4} textAnchor="end">
-              {v}°
+              {tickLabel(v)}
             </text>
           </g>
         ))}
@@ -58,6 +72,23 @@ export default function KneeTrace({ report, currentTime = null, onSeek }) {
           <text key={t} x={x(t)} y={height - 6} textAnchor="middle">
             {t}s
           </text>
+        ))}
+
+        {(report.ignored_movements || []).map((g, i) => (
+          <g key={`ignored-${i}`}>
+            <rect
+              className="band ignored"
+              x={x(g.start_time)}
+              y={m.top}
+              width={Math.max(2, x(g.end_time) - x(g.start_time))}
+              height={height - m.top - m.bottom}
+            >
+              <title>Not counted: {g.reason}</title>
+            </rect>
+            <text className="ignored-label" x={(x(g.start_time) + x(g.end_time)) / 2} y={m.top - 10} textAnchor="middle">
+              setup
+            </text>
+          </g>
         ))}
 
         {report.reps.map((r) => (
@@ -80,7 +111,7 @@ export default function KneeTrace({ report, currentTime = null, onSeek }) {
 
         <line className="depth" x1={m.left} x2={width - m.right} y1={y(depth)} y2={y(depth)} />
         <text className="depth-label" x={m.left + 6} y={y(depth) - 6}>
-          Depth line {depth}°
+          {thigh ? `Depth line: ${depth}° above parallel` : `Depth line ${depth}°`}
         </text>
 
         <polyline className="line" points={points} />
@@ -90,7 +121,7 @@ export default function KneeTrace({ report, currentTime = null, onSeek }) {
             key={r.number}
             className={`bottom ${r.passed ? "pass" : "fail"}`}
             cx={x(r.bottom_time)}
-            cy={y(r.bottom_knee_angle)}
+            cy={y(bottomOf(r))}
             r={6}
           />
         ))}
@@ -100,7 +131,7 @@ export default function KneeTrace({ report, currentTime = null, onSeek }) {
         )}
       </svg>
       <figcaption className="trace-legend">
-        <span>Knee angle (180° = standing straight)</span>
+        <span>{thigh ? "Thigh angle above parallel (90° = standing)" : "Knee angle (180° = standing straight)"}</span>
         <span>
           <i className="swatch" style={{ background: "var(--pass-wash)", outline: "1px solid var(--plate-green)" }} />
           Rep passed
@@ -109,6 +140,12 @@ export default function KneeTrace({ report, currentTime = null, onSeek }) {
           <i className="swatch" style={{ background: "var(--fail-wash)", outline: "1px solid var(--plate-red)" }} />
           Rep failed
         </span>
+        {(report.ignored_movements || []).length > 0 && (
+          <span>
+            <i className="swatch" style={{ background: "var(--ignored-wash)", outline: "1px solid var(--steel)" }} />
+            Setup, not counted
+          </span>
+        )}
         <span>Dot = deepest point. Click a rep to replay it.</span>
       </figcaption>
     </figure>

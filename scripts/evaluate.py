@@ -96,10 +96,11 @@ def main() -> None:
             "file": row["file"], "notes": row.get("notes", ""), "true_reps": true_reps, "found_reps": found,
             "faults": per_fault, "processing_seconds": round(seconds, 2),
             "video_seconds": round(seq.timestamps[-1], 2) if seq.timestamps else None,
-            "reps": [{k: r[k] for k in ("number", "bottom_knee_angle", "torso_lean_at_bottom", "errors")}
+            "reps": [{k: r[k] for k in ("number", "bottom_thigh_angle", "bottom_knee_angle", "torso_lean_at_bottom", "errors")}
                      for r in report["reps"]],
             "warnings": report["warnings"],
-            "shoulder_width_ratio": report["camera"]["shoulder_width_ratio"],
+            "ignored_movements": report["ignored_movements"],
+            "camera": report["camera"],
         })
 
     if not clips:

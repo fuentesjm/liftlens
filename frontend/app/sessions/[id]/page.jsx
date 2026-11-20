@@ -95,8 +95,19 @@ export default function SessionPage() {
                   <li key={r.number} className={`rep${r.passed ? "" : " fail"}`}>
                     <span className="rep-number">Rep {r.number}</span>
                     <span className={`metric${shallow ? " bad" : ""}`}>
-                      <strong>{Math.round(r.bottom_knee_angle)}°</strong>{" "}
-                      <span className="muted small">knee at the bottom</span>
+                      {r.bottom_thigh_angle != null ? (
+                        <>
+                          <strong>{Math.abs(Math.round(r.bottom_thigh_angle))}°</strong>{" "}
+                          <span className="muted small">
+                            {r.bottom_thigh_angle >= 0 ? "above parallel" : "below parallel"}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <strong>{Math.round(r.bottom_knee_angle)}°</strong>{" "}
+                          <span className="muted small">knee at the bottom</span>
+                        </>
+                      )}
                     </span>
                     <span className={`metric${lean ? " bad" : ""}`}>
                       <strong>{Math.round(r.torso_lean_at_bottom)}°</strong>{" "}
@@ -121,8 +132,12 @@ export default function SessionPage() {
         </div>
 
         <p className="muted small">
-          A rep passes when the knee bends to {report.thresholds.max_bottom_knee_angle}° or less (thighs about
-          parallel) and the torso leans no more than {report.thresholds.max_torso_lean}° from upright.
+          {report.thresholds.max_thigh_above_parallel != null
+            ? `A rep passes when your thighs get within ${report.thresholds.max_thigh_above_parallel}° of parallel to the floor`
+            : `A rep passes when the knee bends to ${report.thresholds.max_bottom_knee_angle}° or less`}{" "}
+          and your torso leans no more than {report.thresholds.max_torso_lean}° from upright.
+          {(report.ignored_movements || []).length > 0 &&
+            ` ${report.ignored_movements.length} setup ${report.ignored_movements.length === 1 ? "movement" : "movements"} (unracking or re-racking the bar) weren't counted as reps.`}
         </p>
       </section>
 

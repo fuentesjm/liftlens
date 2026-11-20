@@ -29,11 +29,11 @@ class FakeLLM:
 REPORT = {
     "exercise": "squat", "video": "my_private_clip.mov", "rep_count": 3, "reps_passed": 2,
     "form_score": 0.67,
-    "reps": [{"number": i, "bottom_knee_angle": a, "torso_lean_at_bottom": 30.0,
-              "errors": e} for i, a, e in [(1, 88.0, []), (2, 118.0, ["shallow_depth"]), (3, 90.0, [])]],
+    "reps": [{"number": i, "bottom_thigh_angle": a, "torso_lean_at_bottom": 30.0,
+              "errors": e} for i, a, e in [(1, 6.0, []), (2, 28.0, ["shallow_depth"]), (3, 8.0, [])]],
     "cues": ["Rep 2: Squat deeper: lower until your thighs are about parallel to the floor."],
     "warnings": [],
-    "thresholds": {"max_bottom_knee_angle": 100.0, "max_torso_lean": 50.0},
+    "thresholds": {"max_thigh_above_parallel": 15.0, "max_torso_lean": 50.0},
 }
 DECISION = {"decision": "hold", "next": {"load": 0.0, "unit": "lb", "target_reps": 3},
             "reason": "67% of reps had good form. Keep the same load and reps."}

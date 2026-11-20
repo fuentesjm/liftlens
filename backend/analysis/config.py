@@ -25,9 +25,14 @@ class SquatConfig:
     min_rep_seconds: float = 0.4    # ignore dips shorter than this (noise)
 
     # --- Form rules ------------------------------------------------------------
-    # Depth: the smallest knee angle in the rep must be at or below this value.
-    # Around 90-100 degrees corresponds to thighs roughly parallel to the floor.
-    max_bottom_knee_angle: float = 100.0
+    # Depth: at the bottom of the rep the thigh must be within this many degrees
+    # of parallel to the floor (0 = parallel, negative = below parallel).
+    # The thigh angle is measured from vertical distances only (hip height above
+    # the knee, relative to the thigh's length while standing), so it stays
+    # accurate when the camera isn't exactly side-on; the on-screen knee angle
+    # doesn't. On the team's clips, good reps bottomed out 5-10 deg above
+    # parallel and shallow reps 22-28 deg.
+    max_thigh_above_parallel: float = 15.0
     # Forward lean: torso angle from vertical (shoulder-hip line) at the bottom
     # of the rep must not exceed this value.
     max_torso_lean: float = 50.0
@@ -39,6 +44,16 @@ class SquatConfig:
     # Shoulder separation / torso length above this means the person is turned
     # toward the camera, which distorts the 2D angles. Calibrate on real clips.
     max_shoulder_width_ratio: float = 0.35
+    # Setup movements: a knee bend where the hands are up near or above the head
+    # at the bottom is ducking under / returning a racked bar, not a squat rep.
+    # Measured as (nose height - wrist height) / thigh length; real reps were
+    # -0.43 or lower, rack setup dips +0.08 or higher on the team's clips.
+    max_wrist_over_nose: float = -0.15
+    # Tracking check: the feet stay planted during real reps. If the ankle
+    # appears to travel more than this (in thigh lengths) during the average
+    # rep, part of the body was probably blocked (plates, rack) or the lifter
+    # stepped, so the results are unreliable and the report warns.
+    max_foot_travel: float = 0.35
     smoothing_window: int = 5             # centered moving average (frames, odd)
 
 

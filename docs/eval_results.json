@@ -1,0 +1,231 @@
+{
+  "summary": {
+    "clips": 3,
+    "reps_labeled": 9,
+    "rep_count_exact_clips": "2/3",
+    "rep_count_mae_per_clip": 0.33,
+    "faults": {
+      "shallow_depth": {
+        "tp": 3,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "tn": 3
+      },
+      "forward_lean": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "f1": null,
+        "tn": 6
+      }
+    },
+    "mean_processing_seconds": 12.88
+  },
+  "clips": [
+    {
+      "file": "demo_bodyweight.mov",
+      "notes": "correct form - empty barbell; includes unrack and re-rack",
+      "true_reps": 3,
+      "found_reps": 3,
+      "faults": {
+        "shallow_depth": {
+          "labeled": [],
+          "predicted": []
+        },
+        "forward_lean": {
+          "labeled": [],
+          "predicted": []
+        }
+      },
+      "processing_seconds": 14.23,
+      "video_seconds": 23.17,
+      "reps": [
+        {
+          "number": 1,
+          "bottom_thigh_angle": 9.3,
+          "bottom_knee_angle": 64.5,
+          "torso_lean_at_bottom": 31.1,
+          "errors": []
+        },
+        {
+          "number": 2,
+          "bottom_thigh_angle": 9.0,
+          "bottom_knee_angle": 63.8,
+          "torso_lean_at_bottom": 30.0,
+          "errors": []
+        },
+        {
+          "number": 3,
+          "bottom_thigh_angle": 3.0,
+          "bottom_knee_angle": 57.8,
+          "torso_lean_at_bottom": 29.1,
+          "errors": []
+        }
+      ],
+      "warnings": [],
+      "ignored_movements": [
+        {
+          "start_time": 4.0,
+          "end_time": 6.17,
+          "reason": "setup movement (hands up on a racked bar)"
+        }
+      ],
+      "camera": {
+        "shoulder_width_ratio": 0.15,
+        "foot_travel": 0.14
+      }
+    },
+    {
+      "file": "demo_weighted.mov",
+      "notes": "correct form - loaded barbell; plates and rack safety arm hide the hips from this camera spot",
+      "true_reps": 3,
+      "found_reps": 4,
+      "faults": {
+        "shallow_depth": {
+          "labeled": [],
+          "predicted": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        "forward_lean": {
+          "labeled": [],
+          "predicted": []
+        }
+      },
+      "processing_seconds": 16.64,
+      "video_seconds": 27.27,
+      "reps": [
+        {
+          "number": 1,
+          "bottom_thigh_angle": 30.9,
+          "bottom_knee_angle": 124.0,
+          "torso_lean_at_bottom": 6.9,
+          "errors": [
+            "shallow_depth"
+          ]
+        },
+        {
+          "number": 2,
+          "bottom_thigh_angle": 24.0,
+          "bottom_knee_angle": 119.7,
+          "torso_lean_at_bottom": 34.8,
+          "errors": [
+            "shallow_depth"
+          ]
+        },
+        {
+          "number": 3,
+          "bottom_thigh_angle": 42.0,
+          "bottom_knee_angle": 163.0,
+          "torso_lean_at_bottom": 14.6,
+          "errors": [
+            "shallow_depth"
+          ]
+        },
+        {
+          "number": 4,
+          "bottom_thigh_angle": 27.7,
+          "bottom_knee_angle": 130.2,
+          "torso_lean_at_bottom": 39.4,
+          "errors": [
+            "shallow_depth"
+          ]
+        }
+      ],
+      "warnings": [
+        "Tracking was unsteady: your feet seemed to move during reps, which usually means part of your body was blocked (by plates or the rack) or you stepped. Results may be inaccurate. Film from a spot where your hips, knees, and ankles stay visible."
+      ],
+      "ignored_movements": [
+        {
+          "start_time": 15.4,
+          "end_time": 16.17,
+          "reason": "setup movement (hands up on a racked bar)"
+        },
+        {
+          "start_time": 16.3,
+          "end_time": 17.93,
+          "reason": "setup movement (hands up on a racked bar)"
+        }
+      ],
+      "camera": {
+        "shoulder_width_ratio": 0.24,
+        "foot_travel": 0.47
+      }
+    },
+    {
+      "file": "demo_bad_form.mov",
+      "notes": "improper form - all reps shallow (possibly slight forward lean; not labeled)",
+      "true_reps": 3,
+      "found_reps": 3,
+      "faults": {
+        "shallow_depth": {
+          "labeled": [
+            1,
+            2,
+            3
+          ],
+          "predicted": [
+            1,
+            2,
+            3
+          ]
+        },
+        "forward_lean": {
+          "labeled": [],
+          "predicted": []
+        }
+      },
+      "processing_seconds": 7.77,
+      "video_seconds": 12.47,
+      "reps": [
+        {
+          "number": 1,
+          "bottom_thigh_angle": 22.4,
+          "bottom_knee_angle": 83.1,
+          "torso_lean_at_bottom": 30.7,
+          "errors": [
+            "shallow_depth"
+          ]
+        },
+        {
+          "number": 2,
+          "bottom_thigh_angle": 27.5,
+          "bottom_knee_angle": 89.3,
+          "torso_lean_at_bottom": 30.9,
+          "errors": [
+            "shallow_depth"
+          ]
+        },
+        {
+          "number": 3,
+          "bottom_thigh_angle": 28.5,
+          "bottom_knee_angle": 93.8,
+          "torso_lean_at_bottom": 33.6,
+          "errors": [
+            "shallow_depth"
+          ]
+        }
+      ],
+      "warnings": [],
+      "ignored_movements": [
+        {
+          "start_time": 11.67,
+          "end_time": 12.13,
+          "reason": "setup movement (hands up on a racked bar)"
+        }
+      ],
+      "camera": {
+        "shoulder_width_ratio": 0.25,
+        "foot_travel": 0.15
+      }
+    }
+  ]
+}

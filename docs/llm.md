@@ -39,7 +39,7 @@ Every call uses Gemini's JSON mode (`response_mime_type="application/json"` plus
 
 ## 1. Feedback writer (`backend/llm/feedback.py`)
 
-**Input sent to the LLM:** only numbers and error codes, built by `feedback_input()`: rep count, reps passed, form score, per-rep knee angle / torso lean / error codes, the pass limits, warnings, and the next-session decision with its reason. No video, no video file name, no user identity. A test checks this (`test_feedback_prompt_has_numbers_only_no_video_name`).
+**Input sent to the LLM:** only numbers and error codes, built by `feedback_input()`: rep count, reps passed, form score, per-rep thigh angle above parallel / torso lean / error codes, the pass limits, warnings, and the next-session decision with its reason. No video, no video file name, no user identity. A test checks this (`test_feedback_prompt_has_numbers_only_no_video_name`).
 
 **System prompt:**
 

@@ -1,4 +1,4 @@
 file,true_reps,shallow_reps,lean_reps,notes
-demo_bodyweight.mov,3,,,correct form - bodyweight
-demo_weighted.mov,3,,,correct form - with weights
-demo_bad_form.mov,3,3,,improper form shallow and potentially learning
+demo_bodyweight.mov,3,,,correct form - empty barbell; includes unrack and re-rack
+demo_weighted.mov,3,,,correct form - loaded barbell; plates and rack safety arm hide the hips from this camera spot
+demo_bad_form.mov,3,1 2 3,,improper form - all reps shallow (possibly slight forward lean; not labeled)

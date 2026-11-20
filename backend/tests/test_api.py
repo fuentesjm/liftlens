@@ -20,7 +20,7 @@ def settings(tmp_path):
 
 @pytest.fixture
 def client(settings, monkeypatch):
-    monkeypatch.setattr(api, "extract_pose", lambda path, model: squat_sequence([90, 120, 90]))
+    monkeypatch.setattr(api, "extract_pose", lambda path, model: squat_sequence([60, 120, 60]))
     return TestClient(api.create_app(settings, llm=None))
 
 
