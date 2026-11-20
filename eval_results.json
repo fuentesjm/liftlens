@@ -1,0 +1,206 @@
+{
+  "summary": {
+    "clips": 3,
+    "reps_labeled": 9,
+    "rep_count_exact_clips": "0/3",
+    "rep_count_mae_per_clip": 1.67,
+    "faults": {
+      "shallow_depth": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "f1": null,
+        "tn": 0
+      },
+      "forward_lean": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "f1": null,
+        "tn": 0
+      }
+    },
+    "mean_processing_seconds": 12.79
+  },
+  "clips": [
+    {
+      "file": "demo_bodyweight.mov",
+      "notes": "correct form - bodyweight",
+      "true_reps": 3,
+      "found_reps": 4,
+      "faults": {
+        "shallow_depth": {
+          "labeled": [],
+          "predicted": []
+        },
+        "forward_lean": {
+          "labeled": [],
+          "predicted": []
+        }
+      },
+      "processing_seconds": 14.24,
+      "video_seconds": 23.17,
+      "reps": [
+        {
+          "number": 1,
+          "bottom_knee_angle": 97.0,
+          "torso_lean_at_bottom": 18.8,
+          "errors": []
+        },
+        {
+          "number": 2,
+          "bottom_knee_angle": 63.8,
+          "torso_lean_at_bottom": 29.4,
+          "errors": []
+        },
+        {
+          "number": 3,
+          "bottom_knee_angle": 63.4,
+          "torso_lean_at_bottom": 31.4,
+          "errors": []
+        },
+        {
+          "number": 4,
+          "bottom_knee_angle": 57.8,
+          "torso_lean_at_bottom": 28.7,
+          "errors": []
+        }
+      ],
+      "warnings": [],
+      "shoulder_width_ratio": 0.15
+    },
+    {
+      "file": "demo_weighted.mov",
+      "notes": "correct form - with weights",
+      "true_reps": 3,
+      "found_reps": 6,
+      "faults": {
+        "shallow_depth": {
+          "labeled": [],
+          "predicted": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        },
+        "forward_lean": {
+          "labeled": [],
+          "predicted": []
+        }
+      },
+      "processing_seconds": 16.48,
+      "video_seconds": 27.27,
+      "reps": [
+        {
+          "number": 1,
+          "bottom_knee_angle": 123.9,
+          "torso_lean_at_bottom": 5.7,
+          "errors": [
+            "shallow_depth"
+          ]
+        },
+        {
+          "number": 2,
+          "bottom_knee_angle": 119.2,
+          "torso_lean_at_bottom": 26.9,
+          "errors": [
+            "shallow_depth"
+          ]
+        },
+        {
+          "number": 3,
+          "bottom_knee_angle": 115.2,
+          "torso_lean_at_bottom": 43.7,
+          "errors": [
+            "shallow_depth"
+          ]
+        },
+        {
+          "number": 4,
+          "bottom_knee_angle": 116.3,
+          "torso_lean_at_bottom": 28.4,
+          "errors": [
+            "shallow_depth"
+          ]
+        },
+        {
+          "number": 5,
+          "bottom_knee_angle": 126.8,
+          "torso_lean_at_bottom": 25.0,
+          "errors": [
+            "shallow_depth"
+          ]
+        },
+        {
+          "number": 6,
+          "bottom_knee_angle": 116.1,
+          "torso_lean_at_bottom": 41.6,
+          "errors": [
+            "shallow_depth"
+          ]
+        }
+      ],
+      "warnings": [],
+      "shoulder_width_ratio": 0.24
+    },
+    {
+      "file": "demo_bad_form.mov",
+      "notes": "improper form shallow and potentially learning",
+      "true_reps": 3,
+      "found_reps": 4,
+      "faults": {
+        "shallow_depth": {
+          "labeled": [
+            3
+          ],
+          "predicted": [
+            4
+          ]
+        },
+        "forward_lean": {
+          "labeled": [],
+          "predicted": []
+        }
+      },
+      "processing_seconds": 7.66,
+      "video_seconds": 12.47,
+      "reps": [
+        {
+          "number": 1,
+          "bottom_knee_angle": 83.1,
+          "torso_lean_at_bottom": 30.7,
+          "errors": []
+        },
+        {
+          "number": 2,
+          "bottom_knee_angle": 88.9,
+          "torso_lean_at_bottom": 31.9,
+          "errors": []
+        },
+        {
+          "number": 3,
+          "bottom_knee_angle": 92.5,
+          "torso_lean_at_bottom": 34.1,
+          "errors": []
+        },
+        {
+          "number": 4,
+          "bottom_knee_angle": 128.2,
+          "torso_lean_at_bottom": 47.5,
+          "errors": [
+            "shallow_depth"
+          ]
+        }
+      ],
+      "warnings": [],
+      "shoulder_width_ratio": 0.25
+    }
+  ]
+}

@@ -56,7 +56,7 @@ Open http://localhost:3000 and follow the full flow:
 4. **Today:** shows the next set, the last set's chart, form over time, and the week's plan. **Record this set** pre-fills the upload form.
 5. **History:** every set, newest first.
 
-**Videos to use:** record your own set. Film from the side, with the phone at hip height and your whole body in frame. Video files are not committed to the repository.
+**Videos to use:** the team's sample clips are in `samples/`. To try your own, film from the side, with the phone at hip height and your whole body in frame.
 
 **Start over:** stop the API server, rename or delete the `data/` folder, and start it again. The app then shows the first-visit page.
 
@@ -94,6 +94,18 @@ All tests run without a video, the pose model, or an API key:
 - `test_api.py` swaps the pose model for the same generator. It checks uploads, saved sessions, plans, workout fields, and every error response.
 - `test_adaptation.py` runs the adaptation rules on fake session histories: progress, hold, reduce, deload, retest, kg vs. lb, bodyweight, and old sessions without workout fields.
 - `test_llm.py` checks the LLM features with a fake client: feedback and plan parsing, the numbers-only prompt, length limits, retry on unsafe plans, every fallback, and that the template plan passes the safety checks for all profile combinations. No test calls the real API.
+
+### Accuracy on the team's clips
+
+The team's own side-view clips are in `samples/`, with the true rep count and faulty reps for each clip in `samples/labels.csv`. To compare the analyzer against those labels (needs the pose model):
+
+```bash
+python scripts/evaluate.py --out eval_results.json
+```
+
+It prints, per clip, the reps found vs. labeled and the predicted vs. labeled faulty reps. It then prints rep-count accuracy, precision/recall/F1 for each fault, and the processing time.
+
+### Analyze a single clip
 
 To analyze one of your own clips from the command line and see the JSON report:
 
@@ -211,6 +223,7 @@ Error codes:
 | `docs/llm.md` | LLM prompts, API workflow, inputs and outputs, limitations, team contribution |
 | `scripts/download_model.py` | downloads the pose model |
 | `scripts/check_llm.py` | checks that the Gemini key works |
+| `scripts/evaluate.py`, `samples/labels.csv` | accuracy evaluation on the team's labeled clips |
 | `scripts/sample_result.py` | reproduces a sample result from a synthetic squat set (no video, model, or key) |
 
 ## Known limitations
