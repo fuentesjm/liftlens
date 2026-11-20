@@ -11,11 +11,11 @@ A user uploads a side-view video of a set of squats; LiftLens counts the reps, c
 | Squat analysis pipeline (pose → angles → reps → form rules → JSON report) | **Done** (unit-tested on synthetic data; checked on 2 sample clips) |
 | FastAPI backend: upload a video, get the report, list saved sessions | **Done** (API-tested) |
 | Accuracy evaluation on real recorded clips | Planned |
-| Annotated replay video | Planned |
+| Skeleton overlay on the replay video (results page already replays each rep in sync with the chart) | Planned |
 | Push-up analysis | Planned |
 | Adaptation engine (next-session load and reps) | **Done** (rule-based; scenario-tested) |
 | LLM feedback writer and plan generator (Gemini, safety-checked, template fallback) | **Done** (tested with a fake LLM; see `docs/llm.md`) |
-| Next.js frontend | Planned |
+| Next.js frontend: today's set, record/upload, per-rep results with chart and replay, plan, history | **Done** |
 
 ## How it works
 
@@ -69,6 +69,30 @@ Record a squat set **from the side**, with your whole body in frame, then:
 python -m backend.analysis.analyze samples/squat_side.mp4
 python -m backend.analysis.analyze samples/squat_side.mp4 --out report.json
 ```
+
+### Run the web app
+
+The app needs two terminals: the API server and the frontend.
+
+```bash
+# Terminal 1 (project folder, venv active)
+uvicorn backend.api.main:app --reload
+
+# Terminal 2 (needs Node.js 20 or newer)
+cd frontend
+npm install        # first time only
+npm run dev
+```
+
+Open http://localhost:3000. The full flow:
+
+1. **Plan:** pick a goal, experience, equipment, and days, then **Create plan**.
+2. **Record a set:** choose a side-view squat video, enter the weight and target reps (and optionally RPE), then **Analyze set**.
+3. **Results:** the verdict, a knee-angle chart with each rep marked passed (green) or failed (red), the depth line, per-rep angles, coach notes, and the next set. Click a rep on the chart or **Replay** to jump the video to it.
+4. **Today:** shows the next set. **Record this set** pre-fills the upload form with it.
+5. **History:** every set, newest first.
+
+If the API runs somewhere other than `http://127.0.0.1:8000`, copy `frontend/.env.local.example` to `frontend/.env.local` and change `NEXT_PUBLIC_API_URL`.
 
 ### Run the API server
 
@@ -126,6 +150,9 @@ python -m pytest -q backend/tests
 | `backend/llm/feedback.py` | feedback writer: prompt, schema, template fallback |
 | `backend/llm/plan.py` | plan generator: prompt, schema, safety checks, retry, template plan |
 | `docs/llm.md` | LLM prompts, API workflow, inputs and outputs, limitations, team contribution |
+| `frontend/app/` | Next.js pages: Today (`page.jsx`), `record/`, `sessions/[id]/` (results), `plan/`, `history/` |
+| `frontend/components/KneeTrace.jsx` | knee-angle chart with rep bands, depth line, and video playhead |
+| `frontend/lib/api.js` | all calls to the API (upload with progress) |
 | `backend/tests/` | unit and API tests, and the synthetic squat generator |
 | `scripts/download_model.py` | downloads the pose model |
 

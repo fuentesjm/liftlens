@@ -129,3 +129,11 @@ def test_facing_camera_warns():
     report = analyze_sequence(squat_sequence([90], other_offset=180.0), "synthetic.mp4", CFG)
     assert report["camera"]["shoulder_width_ratio"] > CFG.max_shoulder_width_ratio
     assert any("turned toward the camera" in w for w in report["warnings"])
+
+
+def test_report_includes_downsampled_trace():
+    report = analyze_sequence(squat_sequence([90]), "synthetic.mp4", CFG)  # 30 fps, 3 s
+    trace = report["trace"]
+    assert len(trace["t"]) == len(trace["knee"]) == len(trace["lean"])
+    assert trace["t"][1] - trace["t"][0] == pytest.approx(0.1, abs=0.01)  # ~10 per second
+    assert min(trace["knee"]) == pytest.approx(90.0, abs=2.0)

@@ -22,15 +22,22 @@ class SessionStore:
         self.dir = Path(data_dir) / "sessions"
         self.dir.mkdir(parents=True, exist_ok=True)
 
-    def save(self, report: dict, workout: dict | None = None) -> dict:
-        session = {
+    @staticmethod
+    def new_session(report: dict, workout: dict | None = None) -> dict:
+        """A session dict with a fresh id and timestamp (not saved yet)."""
+        return {
             "session_id": uuid.uuid4().hex,
             "created_at": datetime.now(timezone.utc).isoformat(timespec="microseconds"),
             "workout": workout or {},
             "report": report,
         }
+
+    def write(self, session: dict) -> dict:
         self._path(session["session_id"]).write_text(json.dumps(session, indent=2))
         return session
+
+    def save(self, report: dict, workout: dict | None = None) -> dict:
+        return self.write(self.new_session(report, workout))
 
     def get(self, session_id: str) -> dict | None:
         if not _ID_PATTERN.match(session_id):

@@ -81,7 +81,7 @@ Length limits are enforced by our code after the reply (`check_feedback`: extra 
 ```json
 {"summary": "2 of 3 reps passed the depth and torso checks.",
   "tips": ["Rep 2: Squat deeper: lower until your thighs are about parallel to the floor."],
-  "next_session": "67% of reps had good form. Keep the same load and reps and work on the cue below before progressing.",
+  "next_session": "67% of reps had good form. Keep the same load and reps and work on the form cue before progressing.",
   "source": "template", "model": null, "fallback_reason": "no LLM configured"}
 ```
 

@@ -121,7 +121,7 @@ def next_workout(history: list[dict], cfg: AdaptConfig = DEFAULT_ADAPT_CONFIG) -
     if not good:
         return result("hold", load, target,
                       f"{score:.0%} of reps had good form. Keep the same load and reps "
-                      "and work on the cue below before progressing.")
+                      "and work on the form cue before progressing.")
 
     # 4. Good form and all reps, but the set felt near-maximal: hold.
     if rpe is not None and rpe > cfg.max_rpe_to_progress:

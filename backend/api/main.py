@@ -102,10 +102,11 @@ def create_app(settings: Settings | None = None, llm: LLMClient | None | object 
             raise HTTPException(422, "No person was detected in the video. Record from the side "
                                      "with your whole body in frame.")
         workout = {"load": load, "unit": unit, "target_reps": target_reps, "rpe": rpe}
-        session = store.save(report, workout)
-        decision = next_workout(store.history(exercise))
-        return {**session, "next_workout": decision,
-                "feedback": write_feedback(report, decision, llm)}
+        session = store.new_session(report, workout)
+        # The decision uses this set plus the saved history (newest first).
+        session["next_workout"] = next_workout([session] + store.history(exercise))
+        session["feedback"] = write_feedback(report, session["next_workout"], llm)
+        return store.write(session)
 
     @app.get("/sessions")
     def list_sessions() -> list[dict]:

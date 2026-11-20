@@ -33,7 +33,22 @@ def analyze_sequence(seq: PoseSequence, video: str, cfg: SquatConfig = DEFAULT_S
     reps = segment_reps(series.knee_angle, seq.fps, cfg, up=up, down=down)
     results = evaluate_reps(reps, series, cfg)
     used = {"standing_baseline": round(baseline, 1), "up": round(up, 1), "down": round(down, 1)}
-    return build_report(results, series, cfg, video, used)
+    report = build_report(results, series, cfg, video, used)
+    report["trace"] = downsample_trace(series, seq.fps)
+    return report
+
+
+def downsample_trace(series, fps: float, hz: float = 10.0) -> dict:
+    """Knee angle and torso lean at ~10 samples per second, for charts in the app.
+
+    Not sent to the LLM. Small enough to store with every session.
+    """
+    step = max(1, int(round(fps / hz)))
+    return {
+        "t": [round(float(x), 2) for x in series.timestamps[::step]],
+        "knee": [round(float(x), 1) for x in series.knee_angle[::step]],
+        "lean": [round(float(x), 1) for x in series.torso_lean[::step]],
+    }
 
 
 def analyze_video(video_path: str, model_path: str = str(DEFAULT_MODEL_PATH),

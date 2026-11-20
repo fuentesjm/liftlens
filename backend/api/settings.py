@@ -22,7 +22,8 @@ class Settings:
     model_path: Path = DEFAULT_MODEL_PATH
     data_dir: Path = REPO_ROOT / "data"          # saved session reports go here
     max_upload_mb: float = 200.0
-    cors_origins: list[str] = field(default_factory=lambda: ["http://localhost:3000"])
+    cors_origins: list[str] = field(
+        default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"])
 
     @classmethod
     def from_env(cls) -> "Settings":

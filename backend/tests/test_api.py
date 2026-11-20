@@ -51,7 +51,7 @@ def test_sessions_are_listed_and_fetchable(client):
     assert {s["session_id"] for s in listed} == {first["session_id"], second["session_id"]}
     assert listed[0]["rep_count"] == 3 and listed[0]["form_score"] == 0.67
     got = client.get(f"/sessions/{first['session_id']}").json()
-    assert got == {k: v for k, v in first.items() if k not in ("next_workout", "feedback")}
+    assert got == first  # decision and feedback are stored with the session
 
 
 def test_unknown_or_malformed_session_is_404(client):
