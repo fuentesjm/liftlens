@@ -1,6 +1,6 @@
 # LiftLens
 
-AI workout planning with video-based form review. Team: Jose Fuentes, Perry Wang, Ari Montes.
+AI workout planning with video-based form review. Team: Jose Fuentes, Perry Wang.
 
 A user uploads a side-view video of a set of squats; LiftLens counts the reps, checks each rep's form, and returns a per-rep report. Later stages use that report to adapt the next workout.
 
