@@ -2,7 +2,11 @@
 
 AI workout planning with video-based form review. Team: Jose Fuentes, Perry Wang.
 
-Phase 2 progress report: [`report/liftlens_phase2.pdf`](report/liftlens_phase2.pdf).
+**Documentation:**
+- **This README:** setup, running the app, reproducing results, and an overview.
+- [`docs/architecture.md`](docs/architecture.md): architecture diagrams, a step-by-step walkthrough of an upload through the code, a guide to every module, the data model, and design decisions.
+- [`docs/llm.md`](docs/llm.md): LLM prompts, API workflow, inputs and outputs, and limitations.
+- [`report/liftlens_phase2.pdf`](report/liftlens_phase2.pdf): the Phase 2 progress report.
 
 A user films a set of squats from the side and uploads it. LiftLens counts the reps, checks each rep's depth and torso lean, writes coaching feedback, and decides the weight and reps for the next session. It also generates a weekly plan from the user's goal and equipment.
 
@@ -142,6 +146,8 @@ python -m backend.analysis.analyze path/to/your_squat_side.mp4 --out report.json
 
 ## How it works
 
+This section is a summary. Diagrams, a function-by-function walkthrough of an upload, and the design decisions are in [`docs/architecture.md`](docs/architecture.md).
+
 ```
 video ─► MediaPipe Pose Landmarker ─► joint angles ─► smoothing ─► rep segmentation ─► form rules ─► report
          (pretrained model)           (our code from here on)                                          │
@@ -249,6 +255,7 @@ Error codes:
 | `frontend/components/KneeTrace.jsx` | depth chart with rep bands, setup bands, depth line, and video playhead |
 | `frontend/components/MiniTrace.jsx`, `FormHistory.jsx` | home-page chart and form-over-time bars |
 | `frontend/lib/api.js` | all calls to the API (upload with progress) |
+| `docs/architecture.md` | architecture diagrams, upload walkthrough, module guide, data model, design decisions |
 | `docs/llm.md` | LLM prompts, API workflow, inputs and outputs, limitations, team contribution |
 | `scripts/download_model.py` | downloads the pose model |
 | `scripts/check_llm.py` | checks that the Gemini key works |
