@@ -64,6 +64,26 @@ If the API runs somewhere other than `http://127.0.0.1:8000`, copy `frontend/.en
 
 ## Reproduce a sample result
 
+No video, pose model, or API key needed:
+
+```bash
+python scripts/sample_result.py           # add --json for the full API-style output
+```
+
+This builds a synthetic side-view squat set with known knee angles (rep bottoms at 86°, 118°, 89°). It then runs the set through the same analysis, adaptation, and feedback code the app uses. Expected output:
+
+```
+Reps detected: 3   passed: 2   form score: 67%
+  Rep 1: bottom at 1.67 s, knee 86.6 deg, lean 43.8 deg -> PASS
+  Rep 2: bottom at 4.37 s, knee 118.4 deg, lean 37.8 deg -> FAIL shallow_depth
+  Rep 3: bottom at 7.07 s, knee 89.5 deg, lean 46.8 deg -> PASS
+
+Next set: HOLD -> 95 lb x 3
+  67% of reps had good form. Keep the same load and reps and work on the form cue before progressing.
+```
+
+Run the full test suite:
+
 ```bash
 python -m pytest -q backend/tests
 ```
@@ -191,6 +211,7 @@ Error codes:
 | `docs/llm.md` | LLM prompts, API workflow, inputs and outputs, limitations, team contribution |
 | `scripts/download_model.py` | downloads the pose model |
 | `scripts/check_llm.py` | checks that the Gemini key works |
+| `scripts/sample_result.py` | reproduces a sample result from a synthetic squat set (no video, model, or key) |
 
 ## Known limitations
 
